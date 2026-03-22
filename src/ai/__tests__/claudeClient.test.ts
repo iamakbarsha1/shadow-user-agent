@@ -66,11 +66,9 @@ describe('analyzeWithClaude', () => {
 
     it('should retry on network errors and eventually succeed', async () => {
       vi.useFakeTimers();
-      mockCreate
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValue({
-          content: [{ type: 'text', text: 'success after retry' }],
-        });
+      mockCreate.mockRejectedValueOnce(new Error('Network error')).mockResolvedValue({
+        content: [{ type: 'text', text: 'success after retry' }],
+      });
 
       const resultPromise = analyzeWithClaude('system', 'user');
       await vi.advanceTimersByTimeAsync(1001);
@@ -97,20 +95,16 @@ describe('analyzeWithClaude', () => {
     });
 
     it('should reduce tokens and retry when InsufficientCreditsError has available tokens', async () => {
-      mockCreate
-        .mockRejectedValueOnce(new InsufficientCreditsError(1024))
-        .mockResolvedValue({
-          content: [{ type: 'text', text: 'success with reduced tokens' }],
-        });
+      mockCreate.mockRejectedValueOnce(new InsufficientCreditsError(1024)).mockResolvedValue({
+        content: [{ type: 'text', text: 'success with reduced tokens' }],
+      });
 
       const result = await analyzeWithClaude('system', 'user');
 
       expect(result).toBe('success with reduced tokens');
       expect(mockCreate).toHaveBeenCalledTimes(2);
       // Second call should use reduced max_tokens
-      expect(mockCreate).toHaveBeenLastCalledWith(
-        expect.objectContaining({ max_tokens: 1024 })
-      );
+      expect(mockCreate).toHaveBeenLastCalledWith(expect.objectContaining({ max_tokens: 1024 }));
     });
   });
 
@@ -158,7 +152,9 @@ describe('analyzeWithClaude', () => {
         text: async () => 'can only afford 750 tokens',
       } as Response);
 
-      const error = await analyzeWithClaude('system', 'user').catch((e) => e as InsufficientCreditsError);
+      const error = await analyzeWithClaude('system', 'user').catch(
+        (e) => e as InsufficientCreditsError
+      );
 
       expect(error).toBeInstanceOf(InsufficientCreditsError);
       expect(error.availableTokens).toBe(750);
