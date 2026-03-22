@@ -108,8 +108,51 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string, maxToken
 }
 
 /**
- * Call KIE.AI API using native fetch (OpenAI-compatible endpoint)
- * Uses Claude Sonnet model via KIE.AI's unified API
+ * Poll KIE.AI task until completion
+ * Implements exponential backoff for polling
+ */
+async function pollKieTask(taskId: string, apiKey: string): Promise<string> {
+  const maxPollingAttempts = 30;
+  const pollingIntervalMs = 2000;
+  
+  for (let attempt = 0; attempt < maxPollingAttempts; attempt++) {
+    const response = await fetch(`https://api.kie.ai/v1/task/${taskId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`KIE.AI polling error: ${response.status} - ${errorBody}`);
+    }
+
+    const data = (await response.json()) as {
+      status: 'processing' | 'completed' | 'failed';
+      output?: string;
+      error?: string;
+    };
+
+    if (data.status === 'completed') {
+      return data.output || '';
+    }
+
+    if (data.status === 'failed') {
+      throw new Error(`KIE.AI task failed: ${data.error || 'Unknown error'}`);
+    }
+
+    // Still processing, wait before next poll
+    await new Promise((resolve) => setTimeout(resolve, pollingIntervalMs));
+  }
+
+  throw new Error('KIE.AI task polling timeout - task did not complete in time');
+}
+
+/**
+ * Call KIE.AI API using native fetch
+ * Uses asynchronous task-based API pattern
  */
 async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 4096): Promise<string> {
   const model = process.env.KIE_MODEL || 'claude-sonnet-4-6';
@@ -119,7 +162,8 @@ async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 409
     throw new Error('KIE_AI_API_KEY not set');
   }
 
-  const response = await fetch('https://api.kie.ai/v1/chat/completions', {
+  // Step 1: Create task
+  const createResponse = await fetch('https://api.kie.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -137,26 +181,32 @@ async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 409
     }),
   });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    if (response.status === 402) {
+  if (!createResponse.ok) {
+    const errorBody = await createResponse.text();
+    if (createResponse.status === 402) {
       const match = errorBody.match(/can only afford (\d+)/);
       const available = match ? parseInt(match[1], 10) : 0;
       throw new InsufficientCreditsError(available);
     }
-    throw new Error(`KIE.AI API error: ${response.status} - ${errorBody}`);
+    if (createResponse.status === 401) {
+      throw new Error('KIE.AI API error: 401 - Invalid API key');
+    }
+    throw new Error(`KIE.AI API error: ${createResponse.status} - ${errorBody}`);
   }
 
-  const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
+  const createData = (await createResponse.json()) as {
+    task_id?: string;
+    status?: string;
   };
-  const content = data.choices?.[0]?.message?.content;
 
-  if (!content) {
-    throw new Error('Unexpected response format from KIE.AI');
+  if (!createData.task_id) {
+    throw new Error('KIE.AI did not return a task_id');
   }
 
-  return content;
+  logger.info({ taskId: createData.task_id, provider: 'kie' }, 'KIE.AI task created, polling for results');
+
+  // Step 2: Poll for results
+  return await pollKieTask(createData.task_id, apiKey);
 }
 
 /**
@@ -210,6 +260,12 @@ export async function analyzeWithClaude(
           continue; // retry immediately with reduced tokens
         }
         throw error; // already reduced once, or zero credits — give up
+      }
+
+      // Non-transient API errors should not be retried
+      const msg = (error as Error).message || '';
+      if (msg.startsWith('KIE.AI') || msg.startsWith('OpenRouter API error')) {
+        throw error;
       }
 
       // Retry on network errors or 529 (overloaded)

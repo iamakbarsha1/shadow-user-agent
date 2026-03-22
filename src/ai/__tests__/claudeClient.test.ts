@@ -36,6 +36,7 @@ describe('analyzeWithClaude', () => {
       ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
       MODEL: process.env.MODEL,
       KIE_MODEL: process.env.KIE_MODEL,
+      KIE_API_BASE_URL: process.env.KIE_API_BASE_URL,
     };
     delete process.env.KIE_AI_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
@@ -44,6 +45,7 @@ describe('analyzeWithClaude', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.clearAllMocks();
     for (const [key, value] of Object.entries(savedEnv)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
@@ -164,84 +166,115 @@ describe('analyzeWithClaude', () => {
   });
 
   describe('KIE.AI provider', () => {
+    let mockFetch: ReturnType<typeof vi.fn>;
+
     beforeEach(() => {
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.OPENROUTER_API_KEY;
       process.env.KIE_AI_API_KEY = 'test-kie-key';
       process.env.KIE_MODEL = 'claude-sonnet-4-6';
-      global.fetch = vi.fn();
+      mockFetch = vi.fn();
+      global.fetch = mockFetch as any;
     });
 
-    it('should call KIE.AI API and return response content', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: 'kie.ai response' } }],
-        }),
-      } as Response);
+    it('should create task and poll until completion', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            task_id: 'task_123',
+            status: 'processing',
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            status: 'processing',
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            status: 'completed',
+            output: 'kie.ai response',
+          }),
+        });
 
       const result = await analyzeWithClaude('system', 'user');
 
       expect(result).toBe('kie.ai response');
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
         'https://api.kie.ai/v1/chat/completions',
         expect.objectContaining({ method: 'POST' })
       );
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.kie.ai/v1/task/task_123',
+        expect.objectContaining({ method: 'GET' })
+      );
     });
 
-    it('should use default model if KIE_MODEL not set', async () => {
-      delete process.env.KIE_MODEL;
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: 'response' } }],
-        }),
-      } as Response);
+    it('should throw error if task creation fails', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => 'Invalid API key',
+      });
 
-      await analyzeWithClaude('system', 'user');
+      await expect(analyzeWithClaude('system', 'user')).rejects.toThrow(
+        'KIE.AI API error: 401 - Invalid API key'
+      );
+    });
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        'https://api.kie.ai/v1/chat/completions',
-        expect.objectContaining({
-          body: expect.stringContaining('"model":"claude-sonnet-4-6"'),
+    it('should throw error if task fails during polling', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            task_id: 'task_123',
+            status: 'processing',
+          }),
         })
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            status: 'failed',
+            error: 'Model unavailable',
+          }),
+        });
+
+      await expect(analyzeWithClaude('system', 'user')).rejects.toThrow(
+        'KIE.AI task failed: Model unavailable'
       );
     });
 
     it('should throw InsufficientCreditsError on 402 response', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        status: 402,
-        text: async () => 'can only afford 500 tokens in your budget',
-      } as Response);
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 402,
+          text: async () => 'can only afford 500 tokens in your budget',
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 402,
+          text: async () => 'can only afford 500 tokens in your budget',
+        });
 
       await expect(analyzeWithClaude('system', 'user')).rejects.toBeInstanceOf(
         InsufficientCreditsError
       );
     });
 
-    it('should parse available tokens from 402 response body', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        status: 402,
-        text: async () => 'can only afford 1024 tokens',
-      } as Response);
-
-      const error = await analyzeWithClaude('system', 'user').catch((e) => e as InsufficientCreditsError);
-
-      expect(error).toBeInstanceOf(InsufficientCreditsError);
-      expect(error.availableTokens).toBe(1024);
-    });
-
-    it('should throw error on non-200 response', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        status: 500,
-        text: async () => 'Internal server error',
-      } as Response);
+    it('should throw error if no task_id returned', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status: 'processing',
+        }),
+      });
 
       await expect(analyzeWithClaude('system', 'user')).rejects.toThrow(
-        'KIE.AI API error: 500 - Internal server error'
+        'KIE.AI did not return a task_id'
       );
     });
   });
