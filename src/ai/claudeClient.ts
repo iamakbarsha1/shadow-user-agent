@@ -112,13 +112,17 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string, maxToken
  * Uses Anthropic Messages API format via KIE.AI proxy endpoint
  * Endpoint: POST https://api.kie.ai/claude/v1/messages
  */
-async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 4096): Promise<string> {
+async function callKie(systemPrompt: string, userPrompt: string, _maxTokens = 4096): Promise<string> {
   const model = process.env.KIE_MODEL || 'claude-sonnet-4-6';
   const apiKey = process.env.KIE_AI_API_KEY;
 
   if (!apiKey) {
     throw new Error('KIE_AI_API_KEY not set');
   }
+
+  // KIE.AI API only supports model, messages, tools, thinkingFlag, and stream.
+  // System prompt must be embedded in the user message content.
+  const combinedContent = `${systemPrompt}\n\n${userPrompt}`;
 
   const response = await fetch('https://api.kie.ai/claude/v1/messages', {
     method: 'POST',
@@ -128,11 +132,9 @@ async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 409
     },
     body: JSON.stringify({
       model,
-      system: systemPrompt,
       messages: [
-        { role: 'user', content: userPrompt },
+        { role: 'user', content: combinedContent },
       ],
-      max_tokens: maxTokens,
       stream: false,
     }),
   });
@@ -153,6 +155,7 @@ async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 409
   const data = (await response.json()) as {
     content?: Array<{ type: string; text?: string }>;
     type?: string;
+    stop_reason?: string;
     error?: { message?: string; type?: string };
   };
 
@@ -162,10 +165,11 @@ async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 409
 
   const textBlock = data.content?.find((block) => block.type === 'text');
   if (!textBlock?.text) {
+    logger.error({ responseKeys: Object.keys(data), content: data.content, stopReason: data.stop_reason }, 'KIE.AI returned unexpected response shape');
     throw new Error('KIE.AI returned no text content');
   }
 
-  logger.info({ provider: 'kie', model }, 'KIE.AI response received');
+  logger.info({ provider: 'kie', model, stopReason: data.stop_reason }, 'KIE.AI response received');
 
   return textBlock.text;
 }
