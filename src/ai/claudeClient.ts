@@ -108,51 +108,9 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string, maxToken
 }
 
 /**
- * Poll KIE.AI task until completion
- * Implements exponential backoff for polling
- */
-async function pollKieTask(taskId: string, apiKey: string): Promise<string> {
-  const maxPollingAttempts = 30;
-  const pollingIntervalMs = 2000;
-  
-  for (let attempt = 0; attempt < maxPollingAttempts; attempt++) {
-    const response = await fetch(`https://api.kie.ai/v1/task/${taskId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`KIE.AI polling error: ${response.status} - ${errorBody}`);
-    }
-
-    const data = (await response.json()) as {
-      status: 'processing' | 'completed' | 'failed';
-      output?: string;
-      error?: string;
-    };
-
-    if (data.status === 'completed') {
-      return data.output || '';
-    }
-
-    if (data.status === 'failed') {
-      throw new Error(`KIE.AI task failed: ${data.error || 'Unknown error'}`);
-    }
-
-    // Still processing, wait before next poll
-    await new Promise((resolve) => setTimeout(resolve, pollingIntervalMs));
-  }
-
-  throw new Error('KIE.AI task polling timeout - task did not complete in time');
-}
-
-/**
  * Call KIE.AI API using native fetch
- * Uses asynchronous task-based API pattern
+ * Uses Anthropic Messages API format via KIE.AI proxy endpoint
+ * Endpoint: POST https://api.kie.ai/claude/v1/messages
  */
 async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 4096): Promise<string> {
   const model = process.env.KIE_MODEL || 'claude-sonnet-4-6';
@@ -162,51 +120,54 @@ async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 409
     throw new Error('KIE_AI_API_KEY not set');
   }
 
-  // Step 1: Create task
-  const createResponse = await fetch('https://api.kie.ai/v1/chat/completions', {
+  const response = await fetch('https://api.kie.ai/claude/v1/messages', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'shadow-user-agent',
     },
     body: JSON.stringify({
       model,
+      system: systemPrompt,
       messages: [
-        { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0,
       max_tokens: maxTokens,
+      stream: false,
     }),
   });
 
-  if (!createResponse.ok) {
-    const errorBody = await createResponse.text();
-    if (createResponse.status === 402) {
+  if (!response.ok) {
+    const errorBody = await response.text();
+    if (response.status === 402) {
       const match = errorBody.match(/can only afford (\d+)/);
       const available = match ? parseInt(match[1], 10) : 0;
       throw new InsufficientCreditsError(available);
     }
-    if (createResponse.status === 401) {
+    if (response.status === 401) {
       throw new Error('KIE.AI API error: 401 - Invalid API key');
     }
-    throw new Error(`KIE.AI API error: ${createResponse.status} - ${errorBody}`);
+    throw new Error(`KIE.AI API error: ${response.status} - ${errorBody}`);
   }
 
-  const createData = (await createResponse.json()) as {
-    task_id?: string;
-    status?: string;
+  const data = (await response.json()) as {
+    content?: Array<{ type: string; text?: string }>;
+    type?: string;
+    error?: { message?: string; type?: string };
   };
 
-  if (!createData.task_id) {
-    throw new Error('KIE.AI did not return a task_id');
+  if (data.error) {
+    throw new Error(`KIE.AI API error: ${data.error.message || 'Unknown error'}`);
   }
 
-  logger.info({ taskId: createData.task_id, provider: 'kie' }, 'KIE.AI task created, polling for results');
+  const textBlock = data.content?.find((block) => block.type === 'text');
+  if (!textBlock?.text) {
+    throw new Error('KIE.AI returned no text content');
+  }
 
-  // Step 2: Poll for results
-  return await pollKieTask(createData.task_id, apiKey);
+  logger.info({ provider: 'kie', model }, 'KIE.AI response received');
+
+  return textBlock.text;
 }
 
 /**

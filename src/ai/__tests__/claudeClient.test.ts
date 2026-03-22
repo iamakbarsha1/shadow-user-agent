@@ -173,43 +173,25 @@ describe('analyzeWithClaude', () => {
       global.fetch = mockFetch as any;
     });
 
-    it('should create task and poll until completion', async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            task_id: 'task_123',
-            status: 'processing',
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            status: 'processing',
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            status: 'completed',
-            output: 'kie.ai response',
-          }),
-        });
+    it('should call KIE.AI Claude endpoint and return text content', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          type: 'message',
+          content: [{ type: 'text', text: 'kie.ai response' }],
+        }),
+      });
 
       const result = await analyzeWithClaude('system', 'user');
 
       expect(result).toBe('kie.ai response');
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.kie.ai/v1/chat/completions',
+        'https://api.kie.ai/claude/v1/messages',
         expect.objectContaining({ method: 'POST' })
-      );
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.kie.ai/v1/task/task_123',
-        expect.objectContaining({ method: 'GET' })
       );
     });
 
-    it('should throw error if task creation fails', async () => {
+    it('should throw error on 401 response', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
@@ -221,25 +203,16 @@ describe('analyzeWithClaude', () => {
       );
     });
 
-    it('should throw error if task fails during polling', async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            task_id: 'task_123',
-            status: 'processing',
-          }),
-        })
-        .mockResolvedValue({
-          ok: true,
-          json: async () => ({
-            status: 'failed',
-            error: 'Model unavailable',
-          }),
-        });
+    it('should throw error when response contains error object', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          error: { message: 'Model unavailable', type: 'invalid_request_error' },
+        }),
+      });
 
       await expect(analyzeWithClaude('system', 'user')).rejects.toThrow(
-        'KIE.AI task failed: Model unavailable'
+        'KIE.AI API error: Model unavailable'
       );
     });
 
@@ -261,17 +234,36 @@ describe('analyzeWithClaude', () => {
       );
     });
 
-    it('should throw error if no task_id returned', async () => {
+    it('should throw error when no text content in response', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          status: 'processing',
+          type: 'message',
+          content: [],
         }),
       });
 
       await expect(analyzeWithClaude('system', 'user')).rejects.toThrow(
-        'KIE.AI did not return a task_id'
+        'KIE.AI returned no text content'
       );
+    });
+
+    it('should send system prompt and model in Anthropic Messages format', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          type: 'message',
+          content: [{ type: 'text', text: 'ok' }],
+        }),
+      });
+
+      await analyzeWithClaude('my system prompt', 'my user prompt');
+
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.model).toBe('claude-sonnet-4-6');
+      expect(callBody.system).toBe('my system prompt');
+      expect(callBody.messages).toEqual([{ role: 'user', content: 'my user prompt' }]);
+      expect(callBody.stream).toBe(false);
     });
   });
 });
