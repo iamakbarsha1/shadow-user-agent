@@ -35,12 +35,13 @@ async function startServer(): Promise<void> {
     });
 
     // Graceful shutdown
-    process.on('SIGTERM', async () => {
+    process.on('SIGTERM', () => {
       logger.info('SIGTERM received, shutting down gracefully');
-      server.close(async () => {
-        await prisma.$disconnect();
-        logger.info('Server closed');
-        process.exit(0);
+      server.close(() => {
+        void prisma.$disconnect().then(() => {
+          logger.info('Server closed');
+          process.exit(0);
+        });
       });
     });
   } catch (error) {

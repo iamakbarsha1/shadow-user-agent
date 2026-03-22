@@ -1,4 +1,4 @@
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { chromium, type Browser, type BrowserContext, type Page, type Locator } from 'playwright';
 import type { PersonaConfig } from '../types/persona';
 import type { SessionLog } from '../types/observation';
 import { Observer } from './observer';
@@ -143,13 +143,13 @@ export class BrowserAgent {
         requestUrl.origin === targetOrigin ||
         this.isAllowedExternalResource(requestUrl.hostname)
       ) {
-        route.continue();
+        void route.continue();
       } else {
         logger.debug(
           { blocked: requestUrl.href, runId: this.runId },
           'Blocked off-origin request'
         );
-        route.abort();
+        void route.abort();
       }
     });
 
@@ -303,7 +303,7 @@ export class BrowserAgent {
           await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
 
           return true;
-        } catch (error) {
+        } catch {
           // Element not clickable, try next one
           continue;
         }
@@ -316,7 +316,7 @@ export class BrowserAgent {
   /**
    * Gets a selector string for an element
    */
-  private async getElementSelector(element: any): Promise<string> {
+  private async getElementSelector(element: Locator): Promise<string> {
     try {
       const tagName = await element.evaluate((el: { tagName: string }) => el.tagName.toLowerCase());
       const id = await element.getAttribute('id');

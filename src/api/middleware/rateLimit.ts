@@ -13,10 +13,11 @@ function buildRedisStore(prefix: string): RedisStore | undefined {
   const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
   return new RedisStore({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
     sendCommand: (async (...args: string[]) => {
       const [command, ...rest] = args;
       return redis.call(command, ...rest);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any,
     prefix,
   });

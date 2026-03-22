@@ -47,7 +47,7 @@ async function startWorker(): Promise<void> {
         parsedUrl.pathname && parsedUrl.pathname !== '/'
           ? parseInt(parsedUrl.pathname.slice(1), 10)
           : 0,
-      maxRetriesPerRequest: null as null,
+      maxRetriesPerRequest: null,
     };
 
     // Get max concurrency from env (default: 3)
@@ -117,7 +117,7 @@ async function startWorker(): Promise<void> {
       logger.info({ concurrency: maxConcurrency }, 'Worker ready - listening for jobs');
     });
 
-    worker.on('active', (job) => {
+    worker.on('active', (job: { id?: string; data: AgentJobData; timestamp: number }) => {
       logger.info(
         {
           jobId: job.id,
@@ -128,7 +128,7 @@ async function startWorker(): Promise<void> {
       );
     });
 
-    worker.on('completed', (job, _result) => {
+    worker.on('completed', (job: { id?: string; data: AgentJobData; timestamp: number }, _result) => {
       logger.info(
         {
           jobId: job.id,
@@ -139,7 +139,7 @@ async function startWorker(): Promise<void> {
       );
     });
 
-    worker.on('failed', (job, error) => {
+    worker.on('failed', (job: { id?: string; data: AgentJobData } | undefined, error: Error) => {
       logger.error(
         {
           jobId: job?.id,
@@ -182,8 +182,8 @@ async function startWorker(): Promise<void> {
       process.exit(0);
     };
 
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+    process.on('SIGINT', () => { void shutdown('SIGINT'); });
 
     logger.info(
       {

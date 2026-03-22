@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeAll } from 'vitest';
+import { vi, describe, it, expect, beforeAll, afterEach } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 
@@ -38,12 +38,17 @@ vi.mock('../../worker/queue', () => ({
 }));
 
 import { createApp } from '../app';
+import { prisma } from '../../db/client';
 
 describe('Health API', () => {
   let app: Express;
 
   beforeAll(() => {
     app = createApp();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('GET /health', () => {
@@ -63,6 +68,56 @@ describe('Health API', () => {
       const res = await request(app).get('/health');
 
       expect(res.status).not.toBe(401);
+    });
+
+    it('should report anthropic as ai_provider when ANTHROPIC_API_KEY is set', async () => {
+      const savedAnth = process.env.ANTHROPIC_API_KEY;
+      const savedOR = process.env.OPENROUTER_API_KEY;
+      process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
+      delete process.env.OPENROUTER_API_KEY;
+
+      const res = await request(app).get('/health');
+
+      if (savedAnth !== undefined) process.env.ANTHROPIC_API_KEY = savedAnth;
+      else delete process.env.ANTHROPIC_API_KEY;
+      if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
+
+      expect(res.body.ai_provider).toBe('anthropic');
+    });
+
+    it('should report openrouter as ai_provider when OPENROUTER_API_KEY is set', async () => {
+      const savedOR = process.env.OPENROUTER_API_KEY;
+      process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
+
+      const res = await request(app).get('/health');
+
+      if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
+      else delete process.env.OPENROUTER_API_KEY;
+
+      expect(res.body.ai_provider).toBe('openrouter');
+    });
+
+    it('should report missing as ai_provider when no AI keys are configured', async () => {
+      const savedAnth = process.env.ANTHROPIC_API_KEY;
+      const savedOR = process.env.OPENROUTER_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENROUTER_API_KEY;
+
+      const res = await request(app).get('/health');
+
+      if (savedAnth !== undefined) process.env.ANTHROPIC_API_KEY = savedAnth;
+      if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
+
+      expect(res.body.ai_provider).toBe('missing');
+    });
+
+    it('should return 503 when a service is unavailable', async () => {
+      vi.spyOn(prisma, '$queryRaw').mockRejectedValueOnce(new Error('DB connection refused'));
+
+      const res = await request(app).get('/health');
+
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('degraded');
     });
   });
 });

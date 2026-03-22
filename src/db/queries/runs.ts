@@ -86,10 +86,10 @@ export async function updateRunStatus(runId: string, status: RunStatus, errorMes
       where: { id: runId },
       data,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     // P2025 error: record not found in database
     // This indicates the worker is likely using a different database than the API
-    if (err.code === 'P2025') {
+    if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: unknown }).code === 'P2025') {
       const msg = `[P2025] Run not found when updating status to '${status}'. runId: ${runId}. This likely indicates API and worker are using different DATABASE_URLs.`;
       console.error(msg);
       console.error('Database URL:', process.env.DATABASE_URL);

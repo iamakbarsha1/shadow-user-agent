@@ -25,7 +25,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Graceful shutdown
-process.on('beforeExit', async () => {
-  logger.info('Disconnecting Prisma Client');
-  await prisma.$disconnect();
+process.on('beforeExit', () => {
+  void prisma.$disconnect().then(() => {
+    logger.info('Disconnecting Prisma Client');
+  });
 });

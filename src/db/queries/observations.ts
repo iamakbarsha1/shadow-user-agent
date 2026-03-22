@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../client';
 import type { Observation } from '../../types/observation';
 
@@ -17,7 +18,7 @@ export async function saveObservations(runId: string, observations: Observation[
     data: observations.map((obs) => ({
       runId,
       eventType: obs.eventType,
-      payload: obs.payload as any, // Prisma JsonValue
+      payload: obs.payload as unknown as Prisma.InputJsonValue,
       capturedAt: new Date(obs.timestamp),
     })),
   });

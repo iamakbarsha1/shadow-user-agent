@@ -94,7 +94,8 @@ function extractJSON(response: string): string {
 export function parseAnalysisReport(response: string, sessionLog: SessionLog): AnalysisReport {
   try {
     const jsonString = extractJSON(response);
-    const json = JSON.parse(jsonString);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const json = JSON.parse(jsonString) as unknown;
     const validated = AnalysisReportSchema.parse(json);
 
     // Hallucination guard: remove bugs with invalid observationIds
@@ -139,7 +140,8 @@ export function parseAnalysisReport(response: string, sessionLog: SessionLog): A
 export function parseCodeReviewReport(response: string): CodeReviewReport {
   try {
     const jsonString = extractJSON(response);
-    const json = JSON.parse(jsonString);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const json = JSON.parse(jsonString) as unknown;
     return CodeReviewReportSchema.parse(json);
   } catch (error) {
     logger.warn(

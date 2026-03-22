@@ -34,7 +34,7 @@ function parseRedisUrl(url: string) {
     port: parseInt(parsed.port || '6379', 10),
     password: parsed.password || undefined,
     db: parsed.pathname && parsed.pathname !== '/' ? parseInt(parsed.pathname.slice(1), 10) : 0,
-    maxRetriesPerRequest: null as null,
+    maxRetriesPerRequest: null,
   };
 }
 
@@ -59,7 +59,7 @@ export const agentQueue = new Queue<AgentJobData>('agent-run', {
  * Adds an agent run job to the queue
  */
 export async function enqueueAgentRun(data: AgentJobData): Promise<string> {
-  const job = await agentQueue.add('execute-agent' as string, data, {
+  const job = await agentQueue.add('execute-agent', data, {
     jobId: data.runId, // Use runId as job ID for idempotency
     // Timeout is enforced at Worker level via AGENT_TIMEOUT_MS env var
   });

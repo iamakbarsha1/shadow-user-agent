@@ -1,5 +1,12 @@
 import type { Job } from 'bullmq';
 import type { AgentJobData } from './queue';
+
+interface SkippedJobResult {
+  status: 'skipped';
+  totalSteps: number;
+  observations: never[];
+  timestamp: string;
+}
 import { BrowserAgent } from '../agent/browserAgent';
 import { getPersonaConfig } from '../agent/personaEngine';
 import { updateRunStatus, findRunById } from '../db/queries/runs';
@@ -18,7 +25,7 @@ import type { SessionLog } from '../types/observation';
  * Executes the browser agent and saves results to the database.
  */
 
-export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLog> {
+export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLog | SkippedJobResult> {
   const { runId, url, personaId, options } = job.data;
 
   logger.info(
@@ -65,11 +72,11 @@ export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLo
       // Gracefully complete the job without error so it doesn't retry
       // This prevents the job from getting stuck in a retry loop
       return {
-        status: 'skipped',
+        status: 'skipped' as const,
         totalSteps: 0,
         observations: [],
         timestamp: new Date().toISOString(),
-      } as any;
+      };
     }
 
     logger.info({ runId, foundAfterAttempts: attempts }, 'Run found in database');

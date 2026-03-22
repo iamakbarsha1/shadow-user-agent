@@ -1,16 +1,17 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../client';
 import type { ReportType } from '../../types/report';
 
 export async function saveReport(
   runId: string,
   reportType: ReportType,
-  content: any
+  content: unknown
 ): Promise<string> {
   const report = await prisma.report.create({
     data: {
       runId,
       reportType,
-      content: content as any,
+      content: content as Prisma.InputJsonValue,
     },
   });
 
