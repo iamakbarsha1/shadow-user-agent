@@ -31,13 +31,16 @@ describe('analyzeWithClaude', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     savedEnv = {
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
       KIE_AI_API_KEY: process.env.KIE_AI_API_KEY,
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
       ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
       MODEL: process.env.MODEL,
       KIE_MODEL: process.env.KIE_MODEL,
       KIE_API_BASE_URL: process.env.KIE_API_BASE_URL,
+      GEMINI_MODEL: process.env.GEMINI_MODEL,
     };
+    delete process.env.GEMINI_API_KEY;
     delete process.env.KIE_AI_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
     process.env.ANTHROPIC_API_KEY = 'test-key';
@@ -248,7 +251,7 @@ describe('analyzeWithClaude', () => {
       );
     });
 
-    it('should send system prompt and model in Anthropic Messages format', async () => {
+    it('should combine system and user prompts in a single message per KIE.AI spec', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -261,9 +264,93 @@ describe('analyzeWithClaude', () => {
 
       const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(callBody.model).toBe('claude-sonnet-4-6');
-      expect(callBody.system).toBe('my system prompt');
-      expect(callBody.messages).toEqual([{ role: 'user', content: 'my user prompt' }]);
+      expect(callBody.system).toBeUndefined();
+      expect(callBody.messages).toEqual([{ role: 'user', content: 'my system prompt\n\nmy user prompt' }]);
       expect(callBody.stream).toBe(false);
+    });
+  });
+
+  describe('Gemini provider', () => {
+    let mockFetch: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENROUTER_API_KEY;
+      delete process.env.KIE_AI_API_KEY;
+      process.env.GEMINI_API_KEY = 'test-gemini-key';
+      mockFetch = vi.fn();
+      global.fetch = mockFetch as any;
+    });
+
+    it('should call Gemini API and return text content', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: 'gemini response' }] } }],
+        }),
+      });
+
+      const result = await analyzeWithClaude('system', 'user');
+
+      expect(result).toBe('gemini response');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('generativelanguage.googleapis.com'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should send system_instruction and contents in Gemini format', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: 'ok' }] } }],
+        }),
+      });
+
+      await analyzeWithClaude('my system prompt', 'my user prompt');
+
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.system_instruction).toEqual({ parts: [{ text: 'my system prompt' }] });
+      expect(callBody.contents).toEqual([{ parts: [{ text: 'my user prompt' }] }]);
+      expect(callBody.generationConfig.temperature).toBe(0);
+    });
+
+    it('should throw error on non-ok HTTP response', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => 'Bad request',
+      });
+
+      await expect(analyzeWithClaude('system', 'user')).rejects.toThrow(
+        'Gemini API error: 400 - Bad request'
+      );
+    });
+
+    it('should throw error when no text content in response', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          candidates: [],
+        }),
+      });
+
+      await expect(analyzeWithClaude('system', 'user')).rejects.toThrow(
+        'Gemini returned no text content'
+      );
+    });
+
+    it('should use default model gemini-2.5-flash', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: 'ok' }] } }],
+        }),
+      });
+
+      await analyzeWithClaude('system', 'user');
+
+      expect(mockFetch.mock.calls[0][0]).toContain('gemini-2.5-flash');
     });
   });
 });

@@ -14,8 +14,13 @@ Rules:
 - P1=blocks user, P2=significant, P3=minor, P4=suggestion
 - Response must be valid JSON starting with { and ending with }
 - NO CODE FENCES, NO MARKDOWN, NO EXPLANATIONS
+- Follow this EXACT schema:
 
-{"sessionSummary":"","bugs":[],"uxFrictionPoints":[]}`;
+{
+  "sessionSummary": "string",
+  "bugs": [{"id": "string", "title": "string", "severity": "P1|P2|P3|P4", "description": "string", "stepsToReproduce": ["string"], "observationId": "string", "fixSuggestion": "string"}],
+  "uxFrictionPoints": [{"id": "string", "title": "string", "description": "string", "impactedPersona": "string", "observationId": "string"}]
+}`;
 
   const user = `${JSON.stringify(sessionLog, null, 2)}\n\nRespond with JSON only.`;
 
@@ -31,8 +36,15 @@ export function buildCodeReviewPrompt(analysisReport: AnalysisReport): {
 Rules:
 - Response must be valid JSON starting with { and ending with }
 - NO CODE FENCES, NO MARKDOWN, NO EXPLANATIONS
+- Follow this EXACT schema:
 
-{"overallAssessment":"","criticalIssues":[],"improvements":[],"positives":[],"recommendations":[]}`;
+{
+  "overallAssessment": "string",
+  "criticalIssues": [{"title": "string", "description": "string", "suggestedFix": "string"}],
+  "improvements": [{"title": "string", "description": "string", "suggestedFix": "string"}],
+  "positives": ["string"],
+  "recommendations": ["string"]
+}`;
 
   const user = `${JSON.stringify(analysisReport, null, 2)}\n\nRespond with JSON only.`;
 

@@ -40,6 +40,25 @@ vi.mock('../../worker/queue', () => ({
 import { createApp } from '../app';
 import { prisma } from '../../db/client';
 
+const AI_ENV_KEYS = ['GEMINI_API_KEY', 'KIE_AI_API_KEY', 'OPENROUTER_API_KEY', 'ANTHROPIC_API_KEY'] as const;
+
+function pickAiEnv(): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = {};
+  for (const key of AI_ENV_KEYS) env[key] = process.env[key];
+  return env;
+}
+
+function clearAiEnv(): void {
+  for (const key of AI_ENV_KEYS) delete process.env[key];
+}
+
+function restoreAiEnv(saved: Record<string, string | undefined>): void {
+  for (const [key, value] of Object.entries(saved)) {
+    if (value !== undefined) process.env[key] = value;
+    else delete process.env[key];
+  }
+}
+
 describe('Health API', () => {
   let app: Express;
 
@@ -71,68 +90,55 @@ describe('Health API', () => {
     });
 
     it('should report anthropic as ai_provider when ANTHROPIC_API_KEY is set', async () => {
-      const savedAnth = process.env.ANTHROPIC_API_KEY;
-      const savedOR = process.env.OPENROUTER_API_KEY;
-      const savedKie = process.env.KIE_AI_API_KEY;
+      const saved = { ...pickAiEnv() };
+      clearAiEnv();
       process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
-      delete process.env.OPENROUTER_API_KEY;
-      delete process.env.KIE_AI_API_KEY;
 
       const res = await request(app).get('/health');
-
-      if (savedAnth !== undefined) process.env.ANTHROPIC_API_KEY = savedAnth;
-      else delete process.env.ANTHROPIC_API_KEY;
-      if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
-      else delete process.env.OPENROUTER_API_KEY;
-      if (savedKie !== undefined) process.env.KIE_AI_API_KEY = savedKie;
-      else delete process.env.KIE_AI_API_KEY;
+      restoreAiEnv(saved);
 
       expect(res.body.ai_provider).toBe('anthropic');
     });
 
     it('should report openrouter as ai_provider when OPENROUTER_API_KEY is set', async () => {
-      const savedOR = process.env.OPENROUTER_API_KEY;
-      const savedKie = process.env.KIE_AI_API_KEY;
+      const saved = { ...pickAiEnv() };
+      clearAiEnv();
       process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
-      delete process.env.KIE_AI_API_KEY;
 
       const res = await request(app).get('/health');
-
-      if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
-      else delete process.env.OPENROUTER_API_KEY;
-      if (savedKie !== undefined) process.env.KIE_AI_API_KEY = savedKie;
-      else delete process.env.KIE_AI_API_KEY;
+      restoreAiEnv(saved);
 
       expect(res.body.ai_provider).toBe('openrouter');
     });
 
     it('should report kie as ai_provider when KIE_AI_API_KEY is set', async () => {
-      const savedKie = process.env.KIE_AI_API_KEY;
-      delete process.env.OPENROUTER_API_KEY;
-      delete process.env.ANTHROPIC_API_KEY;
+      const saved = { ...pickAiEnv() };
+      clearAiEnv();
       process.env.KIE_AI_API_KEY = 'test-kie-key';
 
       const res = await request(app).get('/health');
-
-      if (savedKie !== undefined) process.env.KIE_AI_API_KEY = savedKie;
-      else delete process.env.KIE_AI_API_KEY;
+      restoreAiEnv(saved);
 
       expect(res.body.ai_provider).toBe('kie');
     });
 
-    it('should report missing as ai_provider when no AI keys are configured', async () => {
-      const savedAnth = process.env.ANTHROPIC_API_KEY;
-      const savedOR = process.env.OPENROUTER_API_KEY;
-      const savedKie = process.env.KIE_AI_API_KEY;
-      delete process.env.ANTHROPIC_API_KEY;
-      delete process.env.OPENROUTER_API_KEY;
-      delete process.env.KIE_AI_API_KEY;
+    it('should report gemini as ai_provider when GEMINI_API_KEY is set', async () => {
+      const saved = { ...pickAiEnv() };
+      clearAiEnv();
+      process.env.GEMINI_API_KEY = 'test-gemini-key';
 
       const res = await request(app).get('/health');
+      restoreAiEnv(saved);
 
-      if (savedAnth !== undefined) process.env.ANTHROPIC_API_KEY = savedAnth;
-      if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
-      if (savedKie !== undefined) process.env.KIE_AI_API_KEY = savedKie;
+      expect(res.body.ai_provider).toBe('gemini');
+    });
+
+    it('should report missing as ai_provider when no AI keys are configured', async () => {
+      const saved = { ...pickAiEnv() };
+      clearAiEnv();
+
+      const res = await request(app).get('/health');
+      restoreAiEnv(saved);
 
       expect(res.body.ai_provider).toBe('missing');
     });

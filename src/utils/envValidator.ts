@@ -18,14 +18,15 @@ export function validateEnv(): void {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 
-  // Validate AI provider: must have one of Anthropic, OpenRouter, or KIE.AI
+  // Validate AI provider: must have one of Gemini, Anthropic, OpenRouter, or KIE.AI
+  const hasGemini = !!process.env.GEMINI_API_KEY;
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
   const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
   const hasKie = !!process.env.KIE_AI_API_KEY;
 
-  if (!hasAnthropic && !hasOpenRouter && !hasKie) {
+  if (!hasGemini && !hasAnthropic && !hasOpenRouter && !hasKie) {
     throw new Error(
-      'Must set either ANTHROPIC_API_KEY, OPENROUTER_API_KEY, or KIE_AI_API_KEY. See .env.example for configuration.'
+      'Must set either GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, or KIE_AI_API_KEY. See .env.example for configuration.'
     );
   }
 

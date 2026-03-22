@@ -23,6 +23,7 @@ describe('validateEnv', () => {
       JWT_PRIVATE_KEY: process.env.JWT_PRIVATE_KEY,
       JWT_PUBLIC_KEY: process.env.JWT_PUBLIC_KEY,
       INTERNAL_API_KEY: process.env.INTERNAL_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
       ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
       KIE_AI_API_KEY: process.env.KIE_AI_API_KEY,
@@ -88,12 +89,22 @@ describe('validateEnv', () => {
     expect(() => validateEnv()).toThrow('REDIS_URL');
   });
 
-  it('should throw if neither ANTHROPIC_API_KEY, OPENROUTER_API_KEY, nor KIE_AI_API_KEY is set', () => {
+  it('should pass with GEMINI_API_KEY set', () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.KIE_AI_API_KEY;
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+
+    expect(() => validateEnv()).not.toThrow();
+  });
+
+  it('should throw if no AI provider API key is set', () => {
+    delete process.env.GEMINI_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
     delete process.env.KIE_AI_API_KEY;
 
-    expect(() => validateEnv()).toThrow('Must set either ANTHROPIC_API_KEY, OPENROUTER_API_KEY, or KIE_AI_API_KEY');
+    expect(() => validateEnv()).toThrow('Must set either GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, or KIE_AI_API_KEY');
   });
 
   it('should throw if OPENROUTER_API_KEY is set but MODEL is missing', () => {
