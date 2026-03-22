@@ -66,7 +66,14 @@ describe('Observer', () => {
     it('should capture 404 responses', async () => {
       await observer.attach(page);
 
-      // Block all requests to simulate 404
+      // Serve HTML via route interception so relative URLs resolve
+      await page.route('http://test.local/page', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: '<script src="/nonexistent.js"></script>',
+        })
+      );
       await page.route('**/nonexistent.js', (route) => {
         route.fulfill({
           status: 404,
@@ -74,7 +81,7 @@ describe('Observer', () => {
         });
       });
 
-      await page.goto('data:text/html,<script src="/nonexistent.js"></script>');
+      await page.goto('http://test.local/page');
       await page.waitForTimeout(500);
 
       const observations = observer.getObservations();
@@ -87,6 +94,13 @@ describe('Observer', () => {
     it('should capture 500 server errors', async () => {
       await observer.attach(page);
 
+      await page.route('http://test.local/page', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: '<script>fetch("/api/error")</script>',
+        })
+      );
       await page.route('**/api/error', (route) => {
         route.fulfill({
           status: 500,
@@ -94,7 +108,7 @@ describe('Observer', () => {
         });
       });
 
-      await page.goto('data:text/html,<script>fetch("/api/error")</script>');
+      await page.goto('http://test.local/page');
       await page.waitForTimeout(500);
 
       const observations = observer.getObservations();
@@ -110,6 +124,13 @@ describe('Observer', () => {
     it('should capture slow responses over 3 seconds', async () => {
       await observer.attach(page);
 
+      await page.route('http://test.local/page', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: '<script>fetch("/slow-api")</script>',
+        })
+      );
       // Simulate slow response
       await page.route('**/slow-api', (route) => {
         setTimeout(() => {
@@ -120,7 +141,7 @@ describe('Observer', () => {
         }, 3500);
       });
 
-      await page.goto('data:text/html,<script>fetch("/slow-api")</script>');
+      await page.goto('http://test.local/page');
       await page.waitForTimeout(4000);
 
       const observations = observer.getObservations();
@@ -135,6 +156,13 @@ describe('Observer', () => {
     it('should capture broken images (404)', async () => {
       await observer.attach(page);
 
+      await page.route('http://test.local/page', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: '<img src="/broken.jpg" />',
+        })
+      );
       await page.route('**/broken.jpg', (route) => {
         route.fulfill({
           status: 404,
@@ -142,7 +170,7 @@ describe('Observer', () => {
         });
       });
 
-      await page.goto('data:text/html,<img src="/broken.jpg" />');
+      await page.goto('http://test.local/page');
       await page.waitForTimeout(500);
 
       const observations = observer.getObservations();

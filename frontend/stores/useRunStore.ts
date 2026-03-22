@@ -5,7 +5,8 @@ interface Run {
   runId: string;
   url: string;
   personaId: string;
-  status: 'pending' | 'running' | 'complete' | 'failed';
+  // status: 'pending' | 'running' | 'complete' | 'failed';
+  status: string;
   startedAt: string;
   completedAt?: string;
 }

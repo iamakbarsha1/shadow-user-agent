@@ -11,7 +11,13 @@
       "Bash(npm view:*)",
       "Bash(find /Users/akbarsha/Documents/code/shadow-user-agent -name \"*claude*test*\" -o -name \"*test*claude*\" 2>/dev/null | head -20)",
       "Bash(psql postgresql://shadow:shadow@localhost:5432/shadow_agent -c \"SELECT id, report_type, content FROM report LIMIT 1;\" 2>/dev/null || echo \"Connection failed\")",
-      "Bash(curl -s http://localhost:4000/health 2>&1 | head -5 || echo \"API check\")"
+      "Bash(curl -s http://localhost:4000/health 2>&1 | head -5 || echo \"API check\")",
+      "Bash(ls -la /Users/akbarsha/Documents/code/shadow-user-agent/frontend/app/reports/\\\\[runId\\\\]/ 2>/dev/null)",
+      "Bash(ls /Users/akbarsha/Documents/code/shadow-user-agent/frontend/app/reports/\\\\[runId\\\\]/ 2>/dev/null)",
+      "Bash(cd /Users/akbarsha/Documents/code/shadow-user-agent/frontend && npx next build 2>&1 | tail -30)",
+      "Bash(npx next:*)",
+      "Bash(ls /Users/akbarsha/Documents/code/shadow-user-agent/.eslintrc* /Users/akbarsha/Documents/code/shadow-user-agent/eslint.config* 2>/dev/null)",
+      "Bash(ls /Users/akbarsha/Documents/code/shadow-user-agent/.eslintrc* 2>/dev/null; cat /Users/akbarsha/Documents/code/shadow-user-agent/frontend/next.config.mjs 2>/dev/null || cat /Users/akbarsha/Documents/code/shadow-user-agent/frontend/next.config.js 2>/dev/null)"
     ]
   }
 }

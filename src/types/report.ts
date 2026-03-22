@@ -47,3 +47,21 @@ export interface CodeReviewReport {
   positives: string[];
   recommendations: string[];
 }
+
+export interface GetReportResponse {
+  reportId: string;
+  runId: string;
+  reportType: ReportType;
+  content: AnalysisReport | CodeReviewReport;
+  createdAt: string;
+}
+
+export interface GetReportsResponse {
+  runId: string;
+  reports: {
+    reportId: string;
+    reportType: ReportType;
+    content: AnalysisReport | CodeReviewReport;
+    createdAt: string;
+  }[];
+}

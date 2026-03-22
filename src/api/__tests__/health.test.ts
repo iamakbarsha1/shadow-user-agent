@@ -1,7 +1,43 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { vi, describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
-import { createApp } from '../app';
 import type { Express } from 'express';
+
+// Mock prisma
+vi.mock('../../db/client', () => ({
+  prisma: {
+    $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
+    $disconnect: vi.fn(),
+    run: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
+  },
+}));
+
+// Mock ioredis
+vi.mock('ioredis', () => {
+  const RedisMock = vi.fn().mockImplementation(() => ({
+    ping: vi.fn().mockResolvedValue('PONG'),
+    disconnect: vi.fn(),
+    quit: vi.fn(),
+    on: vi.fn(),
+  }));
+  return { default: RedisMock };
+});
+
+// Mock queue (imported transitively)
+vi.mock('../../worker/queue', () => ({
+  enqueueAgentRun: vi.fn().mockResolvedValue('mock-job-id'),
+  getJobStatus: vi.fn(),
+  closeQueue: vi.fn(),
+}));
+
+import { createApp } from '../app';
 
 describe('Health API', () => {
   let app: Express;
@@ -24,7 +60,6 @@ describe('Health API', () => {
     });
 
     it('should not require authentication', async () => {
-      // Health check should work without auth
       const res = await request(app).get('/health');
 
       expect(res.status).not.toBe(401);

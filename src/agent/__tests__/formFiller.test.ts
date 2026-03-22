@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { FormFiller } from '../formFiller';
 import { chromium, type Browser, type Page } from 'playwright';
 
@@ -117,9 +117,9 @@ describe('FormFiller', () => {
     it('should select first non-empty option in dropdowns', async () => {
       const filler = new FormFiller('fast');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
-          <select name="choice">
+          <select name="choice" required>
             <option value="">Select...</option>
             <option value="option1">Option 1</option>
             <option value="option2">Option 2</option>
@@ -146,13 +146,19 @@ describe('FormFiller', () => {
         </form>
       `);
 
+      // Mock Math.random to ensure fields are filled (not skipped) with non-empty values
+      // random() <= 0.5 means field is filled; index 1 = ' ' (single space)
+      const mockRandom = vi.spyOn(Math, 'random').mockReturnValue(0.3);
+
       await filler.fillFormsOnPage(page);
+
+      mockRandom.mockRestore();
 
       const field1 = await page.locator('[name="field1"]').inputValue();
       const field2 = await page.locator('[name="field2"]').inputValue();
       const field3 = await page.locator('[name="field3"]').inputValue();
 
-      // At least one field should have a value (randomly filled)
+      // All fields should have the same edge case value (index floor(0.3*10)=3)
       const hasValue = field1 !== '' || field2 !== '' || field3 !== '';
       expect(hasValue).toBe(true);
     });

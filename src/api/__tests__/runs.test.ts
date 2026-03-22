@@ -1,9 +1,69 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
-import { createApp } from '../app';
-import { prisma } from '../../db/client';
 import type { Express } from 'express';
 import jwt from 'jsonwebtoken';
+
+// In-memory run store for mock
+let runStore: Map<string, Record<string, unknown>>;
+
+// Mock queue — must be before imports that use it
+vi.mock('../../worker/queue', () => ({
+  enqueueAgentRun: vi.fn().mockResolvedValue('mock-job-id'),
+  getJobStatus: vi.fn(),
+  closeQueue: vi.fn(),
+}));
+
+// Mock prisma client
+vi.mock('../../db/client', () => {
+  const createMockPrisma = () => ({
+    run: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
+    $disconnect: vi.fn(),
+    $queryRaw: vi.fn(),
+  });
+  return { prisma: createMockPrisma() };
+});
+
+import { createApp } from '../app';
+import { prisma } from '../../db/client';
+
+// Type helper for mocked prisma
+const mockPrisma = prisma as unknown as {
+  run: {
+    create: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    deleteMany: ReturnType<typeof vi.fn>;
+  };
+  $transaction: ReturnType<typeof vi.fn>;
+  $disconnect: ReturnType<typeof vi.fn>;
+  $queryRaw: ReturnType<typeof vi.fn>;
+};
+
+function createMockRun(overrides: Record<string, unknown> = {}) {
+  const id = overrides.id as string || `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  return {
+    id,
+    url: 'https://example.com',
+    personaId: 'new_user',
+    status: 'pending',
+    startedAt: new Date(),
+    completedAt: null,
+    errorMessage: null,
+    observations: [],
+    reports: [],
+    ...overrides,
+  };
+}
 
 describe('Runs API', () => {
   let app: Express;
@@ -12,7 +72,6 @@ describe('Runs API', () => {
   beforeAll(async () => {
     app = createApp();
 
-    // Generate test JWT token
     const privateKey = process.env.JWT_PRIVATE_KEY!;
     testToken = jwt.sign(
       { userId: 'test-user', email: 'test@example.com' },
@@ -21,13 +80,49 @@ describe('Runs API', () => {
     );
   });
 
-  beforeEach(async () => {
-    // Clean database before each test
-    await prisma.run.deleteMany();
-  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    runStore = new Map();
 
-  afterAll(async () => {
-    await prisma.$disconnect();
+    // Default: no active runs
+    mockPrisma.run.count.mockResolvedValue(0);
+
+    // $transaction calls the callback with a tx proxy that delegates to the same mock
+    mockPrisma.$transaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
+      const txProxy = {
+        run: {
+          create: vi.fn().mockImplementation(async (args: { data: Record<string, unknown> }) => {
+            const run = createMockRun({ url: args.data.url, personaId: args.data.personaId });
+            runStore.set(run.id, run);
+            return run;
+          }),
+          findUnique: vi.fn().mockImplementation(async (args: { where: { id: string } }) => {
+            return runStore.get(args.where.id) || null;
+          }),
+        },
+      };
+      return cb(txProxy);
+    });
+
+    // findRunById uses prisma.run.findUnique with includes
+    mockPrisma.run.findUnique.mockImplementation(async (args: { where: { id: string } }) => {
+      return runStore.get(args.where.id) || null;
+    });
+
+    // listRuns
+    mockPrisma.run.findMany.mockImplementation(async () => {
+      return Array.from(runStore.values());
+    });
+
+    // deleteRun
+    mockPrisma.run.delete.mockImplementation(async (args: { where: { id: string } }) => {
+      const run = runStore.get(args.where.id);
+      runStore.delete(args.where.id);
+      return run;
+    });
+
+    // deleteMany for cleanup
+    mockPrisma.run.deleteMany.mockResolvedValue({ count: 0 });
   });
 
   describe('POST /api/v1/runs', () => {
@@ -111,7 +206,6 @@ describe('Runs API', () => {
 
       const runId = createRes.body.runId;
 
-      // Get the run
       const res = await request(app)
         .get(`/api/v1/runs/${runId}`)
         .set('Authorization', `Bearer ${testToken}`);
@@ -138,6 +232,9 @@ describe('Runs API', () => {
 
   describe('GET /api/v1/runs', () => {
     it('should return empty list when no runs exist', async () => {
+      // Override count to return 0 for list query
+      mockPrisma.run.count.mockResolvedValue(0);
+
       const res = await request(app)
         .get('/api/v1/runs')
         .set('Authorization', `Bearer ${testToken}`);
@@ -161,7 +258,9 @@ describe('Runs API', () => {
         .set('Authorization', `Bearer ${testToken}`)
         .send({ url: 'https://test.com', personaId: 'power_user' });
 
-      // List runs
+      // Update count mock to reflect stored runs
+      mockPrisma.run.count.mockResolvedValue(runStore.size);
+
       const res = await request(app)
         .get('/api/v1/runs')
         .set('Authorization', `Bearer ${testToken}`);
@@ -180,7 +279,12 @@ describe('Runs API', () => {
           .send({ url: 'https://example.com', personaId: 'new_user' });
       }
 
-      // Get first page
+      const allRuns = Array.from(runStore.values());
+
+      // Page 1: limit=2, offset=0
+      mockPrisma.run.findMany.mockResolvedValueOnce(allRuns.slice(0, 2));
+      mockPrisma.run.count.mockResolvedValueOnce(3);
+
       const res1 = await request(app)
         .get('/api/v1/runs?limit=2&offset=0')
         .set('Authorization', `Bearer ${testToken}`);
@@ -189,7 +293,10 @@ describe('Runs API', () => {
       expect(res1.body.limit).toBe(2);
       expect(res1.body.offset).toBe(0);
 
-      // Get second page
+      // Page 2: limit=2, offset=2
+      mockPrisma.run.findMany.mockResolvedValueOnce(allRuns.slice(2));
+      mockPrisma.run.count.mockResolvedValueOnce(3);
+
       const res2 = await request(app)
         .get('/api/v1/runs?limit=2&offset=2')
         .set('Authorization', `Bearer ${testToken}`);
@@ -200,8 +307,9 @@ describe('Runs API', () => {
     });
 
     it('should filter by status', async () => {
-      // Create runs with different statuses would require database manipulation
-      // For now, just test the query parameter is accepted
+      mockPrisma.run.findMany.mockResolvedValue([]);
+      mockPrisma.run.count.mockResolvedValue(0);
+
       const res = await request(app)
         .get('/api/v1/runs?status=pending')
         .set('Authorization', `Bearer ${testToken}`);
@@ -220,7 +328,6 @@ describe('Runs API', () => {
 
       const runId = createRes.body.runId;
 
-      // Delete the run
       const deleteRes = await request(app)
         .delete(`/api/v1/runs/${runId}`)
         .set('Authorization', `Bearer ${testToken}`);

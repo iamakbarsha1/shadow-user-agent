@@ -1,14 +1,24 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useRunStore } from '../stores/useRunStore';
 import Link from 'next/link';
 
 export default function Dashboard(): JSX.Element {
   const { runs, loading, loadRuns } = useRunStore();
+  const router = useRouter();
+
+  const handleRowClick = (run: { runId: string; status: string }) => {
+    if (run.status === 'complete') {
+      router.push(`/reports/${run.runId}`);
+    } else {
+      router.push(`/run/${run.runId}/live`);
+    }
+  };
 
   useEffect(() => {
-    loadRuns();
+    void loadRuns();
   }, []);
 
   useEffect(() => {
@@ -18,7 +28,7 @@ export default function Dashboard(): JSX.Element {
     }
 
     const interval = setInterval(() => {
-      loadRuns();
+      void loadRuns();
     }, 10000);
 
     return () => clearInterval(interval);
@@ -70,11 +80,18 @@ export default function Dashboard(): JSX.Element {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Started
                 </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {runs.map((run) => (
-                <tr key={run.runId} className="hover:bg-gray-50 cursor-pointer">
+                <tr
+                  key={run.runId}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleRowClick(run)}
+                >
                   <td className="px-6 py-4 text-sm text-gray-900">{run.url}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{run.personaId}</td>
                   <td className="px-6 py-4">
@@ -86,6 +103,11 @@ export default function Dashboard(): JSX.Element {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {new Date(run.startedAt).toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <span className="text-sm text-blue-600 hover:text-blue-800">
+                      {run.status === 'complete' ? 'View Reports' : 'Monitor'}
+                    </span>
                   </td>
                 </tr>
               ))}

@@ -2,16 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { api } from '../../../../lib/api';
+
+interface RunData {
+  runId: string;
+  url: string;
+  personaId: string;
+  status: string;
+  startedAt: string;
+  completedAt?: string;
+  observationCount: number;
+  reportIds: string[];
+}
 
 export default function LiveMonitor(): JSX.Element {
   const params = useParams();
   const runId = params.runId as string;
-  const [run, setRun] = useState<any>(null);
+  const [run, setRun] = useState<RunData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRun = async () => {
+    const fetchRun = async (): Promise<void> => {
       try {
         const data = await api.getRun(runId);
         setRun(data);
@@ -22,11 +34,11 @@ export default function LiveMonitor(): JSX.Element {
       }
     };
 
-    fetchRun();
+    void fetchRun();
     // Poll every 5 seconds - stops when run completes
     const interval = setInterval(() => {
       if (run?.status !== 'complete' && run?.status !== 'failed') {
-        fetchRun();
+        void fetchRun();
       }
     }, 5000);
     return () => clearInterval(interval);
@@ -43,7 +55,7 @@ export default function LiveMonitor(): JSX.Element {
     );
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case 'complete':
         return 'text-green-600';
@@ -71,9 +83,9 @@ export default function LiveMonitor(): JSX.Element {
 
           <div>
             <h2 className="text-sm font-medium text-gray-500">Status</h2>
-            <p className={`text-2xl font-bold ${getStatusColor(run?.status)}`}>
+            <p className={`text-2xl font-bold ${getStatusColor(run?.status ?? '')}`}>
               {run?.status?.toUpperCase()}
-              {run?.status === 'running' && <span className="ml-2 animate-pulse">●</span>}
+              {run?.status === 'running' && <span className="ml-2 animate-pulse">&#x25CF;</span>}
             </p>
           </div>
 
@@ -89,25 +101,40 @@ export default function LiveMonitor(): JSX.Element {
 
           <div>
             <h2 className="text-sm font-medium text-gray-500">Observations</h2>
-            <p className="text-3xl font-bold">{run?.observationCount || 0}</p>
+            <p className="text-3xl font-bold">{run?.observationCount ?? 0}</p>
           </div>
 
           {run?.status === 'complete' && (
             <div className="mt-6 p-4 bg-green-50 rounded-lg">
               <p className="text-green-800 font-medium">
-                ✓ Run completed! Found {run.observationCount} observations.
+                Run completed! Found {run.observationCount} observations.
               </p>
               <p className="text-green-600 text-sm mt-2">
-                Reports generated: {run.reportIds?.length || 0}
+                Reports generated: {run.reportIds?.length ?? 0}
               </p>
+              <Link
+                href={`/reports/${runId}`}
+                className="inline-block mt-3 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+              >
+                View Reports
+              </Link>
             </div>
           )}
 
           {run?.status === 'failed' && (
             <div className="mt-6 p-4 bg-red-50 rounded-lg">
-              <p className="text-red-800 font-medium">✗ Run failed</p>
+              <p className="text-red-800 font-medium">Run failed</p>
             </div>
           )}
+        </div>
+
+        <div className="mt-6">
+          <Link
+            href="/"
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            Back to Dashboard
+          </Link>
         </div>
       </div>
     </main>

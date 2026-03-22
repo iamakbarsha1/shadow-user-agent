@@ -7,7 +7,9 @@ import { generalRateLimit, createRunRateLimit } from './middleware/rateLimit';
 import healthRouter from './routes/health';
 import authRouter from './routes/auth';
 import runsRouter from './routes/runs';
+import reportsRouter from './routes/reports';
 import { logger } from '../utils/logger';
+import path from 'path';
 
 /**
  * Creates and configures the Express application
@@ -45,12 +47,26 @@ export function createApp(): Express {
 
   // Protected routes (require authentication)
   app.use('/api/v1/runs', authenticateJWT);
+  app.use('/api/v1/reports', authenticateJWT);
 
   // Apply stricter rate limit to POST /runs
   app.post('/api/v1/runs', createRunRateLimit);
 
   // Mount API routes
   app.use('/api/v1/runs', runsRouter);
+  app.use('/api/v1/reports', reportsRouter);
+
+  // Screenshot serving with path traversal protection
+  const screenshotBase = process.env.SCREENSHOT_STORAGE_PATH || '/tmp/agent-sessions';
+  app.use('/api/v1/screenshots', authenticateJWT, (req, _res, next) => {
+    // Block path traversal attempts
+    const resolved = path.resolve(screenshotBase, req.path.slice(1));
+    if (!resolved.startsWith(path.resolve(screenshotBase))) {
+      _res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied', details: {} } });
+      return;
+    }
+    next();
+  }, express.static(screenshotBase));
 
   // 404 handler
   app.use((_req, res) => {

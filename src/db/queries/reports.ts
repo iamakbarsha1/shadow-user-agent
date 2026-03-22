@@ -23,3 +23,9 @@ export async function getReportsByRunId(runId: string) {
     orderBy: { createdAt: 'asc' },
   });
 }
+
+export async function findReportById(reportId: string) {
+  return await prisma.report.findUnique({
+    where: { id: reportId },
+  });
+}

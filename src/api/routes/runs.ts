@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { validateRequest, createRunSchema, listRunsQuerySchema } from '../validation';
 import { findRunById, listRuns, deleteRun, countActiveRuns } from '../../db/queries/runs';
+import { getReportsByRunId } from '../../db/queries/reports';
 import { RunNotFoundError, RunLimitExceededError } from '../../utils/errors';
 import { validateTargetUrl } from '../../utils/urlValidator';
 import { logger } from '../../utils/logger';
@@ -144,6 +145,35 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     };
 
     res.status(200).json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/runs/:runId/reports
+ * List all reports for a run
+ */
+router.get('/:runId/reports', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const runId = String(req.params['runId']);
+
+    const run = await findRunById(runId);
+    if (!run) {
+      throw new RunNotFoundError(runId);
+    }
+
+    const reports = await getReportsByRunId(runId);
+
+    res.status(200).json({
+      runId,
+      reports: reports.map((r) => ({
+        reportId: r.id,
+        reportType: r.reportType,
+        content: r.content,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    });
   } catch (error) {
     next(error);
   }

@@ -1,8 +1,55 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { vi, describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
-import { createApp } from '../app';
 import type { Express } from 'express';
 import jwt from 'jsonwebtoken';
+
+// Mock queue (POST /runs triggers enqueueAgentRun)
+vi.mock('../../worker/queue', () => ({
+  enqueueAgentRun: vi.fn().mockResolvedValue('mock-job-id'),
+  getJobStatus: vi.fn(),
+  closeQueue: vi.fn(),
+}));
+
+// Mock prisma (POST /runs uses prisma.$transaction and run queries)
+vi.mock('../../db/client', () => {
+  const mockRun = {
+    id: 'mock-run-id',
+    url: 'https://example.com',
+    personaId: 'new_user',
+    status: 'pending',
+    startedAt: new Date(),
+    completedAt: null,
+    errorMessage: null,
+    observations: [],
+    reports: [],
+  };
+
+  return {
+    prisma: {
+      run: {
+        create: vi.fn().mockResolvedValue(mockRun),
+        findUnique: vi.fn().mockResolvedValue(mockRun),
+        findMany: vi.fn().mockResolvedValue([]),
+        count: vi.fn().mockResolvedValue(0),
+        delete: vi.fn(),
+        deleteMany: vi.fn(),
+      },
+      $transaction: vi.fn().mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
+        const txProxy = {
+          run: {
+            create: vi.fn().mockResolvedValue(mockRun),
+            findUnique: vi.fn().mockResolvedValue(mockRun),
+          },
+        };
+        return cb(txProxy);
+      }),
+      $disconnect: vi.fn(),
+      $queryRaw: vi.fn(),
+    },
+  };
+});
+
+import { createApp } from '../app';
 
 describe('Auth API', () => {
   let app: Express;
