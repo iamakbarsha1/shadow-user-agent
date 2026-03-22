@@ -1,0 +1,33 @@
+# Worker image — uses the official Playwright base image so Chromium is pre-installed
+FROM mcr.microsoft.com/playwright:v1.44.0-jammy AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY prisma ./prisma/
+
+RUN npm ci
+
+COPY tsconfig.json tsconfig.worker.json ./
+COPY src ./src/
+
+RUN npm run build:worker
+
+# ── Production stage ───────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/playwright:v1.44.0-jammy
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY package*.json ./
+COPY prisma ./prisma/
+
+RUN npm ci --omit=dev && npx prisma generate
+
+COPY --from=builder /app/dist ./dist/
+
+# Screenshot temp directory
+RUN mkdir -p /tmp/agent-sessions
+
+CMD ["node", "dist/worker/index.js"]
