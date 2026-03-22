@@ -47,11 +47,16 @@ describe('Observer', () => {
     it('should capture console errors', async () => {
       await observer.attach(page);
 
-      // Navigate to page and trigger console error
-      await page.goto('data:text/html,<script>console.error("Test error")</script>');
+      // Use page.evaluate to trigger console error (more reliable than data URL)
+      await page.goto('about:blank');
+      
+      // Inject and execute code that triggers console.error
+      await page.evaluate(() => {
+        console.error('Test error message');
+      });
 
-      // Wait for observation
-      await page.waitForTimeout(100);
+      // Wait for observation to be captured
+      await page.waitForTimeout(200);
 
       const observations = observer.getObservations();
       expect(observations.length).toBeGreaterThan(0);
