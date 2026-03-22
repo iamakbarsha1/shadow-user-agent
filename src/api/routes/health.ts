@@ -21,11 +21,13 @@ router.get('/', async (_req: Request, res: Response) => {
     const redisStatus = 'connected';
 
     // Check AI provider configuration
-    const aiProvider = process.env.OPENROUTER_API_KEY
-      ? 'openrouter'
-      : process.env.ANTHROPIC_API_KEY
-        ? 'anthropic'
-        : 'missing';
+    const aiProvider = process.env.KIE_AI_API_KEY
+      ? 'kie'
+      : process.env.OPENROUTER_API_KEY
+        ? 'openrouter'
+        : process.env.ANTHROPIC_API_KEY
+          ? 'anthropic'
+          : 'missing';
 
     res.status(200).json({
       status: 'ok',

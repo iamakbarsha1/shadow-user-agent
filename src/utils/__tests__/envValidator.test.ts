@@ -25,7 +25,9 @@ describe('validateEnv', () => {
       INTERNAL_API_KEY: process.env.INTERNAL_API_KEY,
       ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+      KIE_AI_API_KEY: process.env.KIE_AI_API_KEY,
       MODEL: process.env.MODEL,
+      KIE_MODEL: process.env.KIE_MODEL,
       NODE_ENV: process.env.NODE_ENV,
     };
     setValidEnv();
@@ -54,6 +56,24 @@ describe('validateEnv', () => {
     expect(() => validateEnv()).not.toThrow();
   });
 
+  it('should pass with KIE_AI_API_KEY set (KIE_MODEL optional)', () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    process.env.KIE_AI_API_KEY = 'test-kie-key';
+    // KIE_MODEL is optional, uses default if not set
+
+    expect(() => validateEnv()).not.toThrow();
+  });
+
+  it('should pass with KIE_AI_API_KEY and KIE_MODEL set', () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    process.env.KIE_AI_API_KEY = 'test-kie-key';
+    process.env.KIE_MODEL = 'claude-sonnet-4-6';
+
+    expect(() => validateEnv()).not.toThrow();
+  });
+
   it.each(REQUIRED_VARS)('should throw if %s is missing', (varName) => {
     delete process.env[varName];
 
@@ -68,11 +88,12 @@ describe('validateEnv', () => {
     expect(() => validateEnv()).toThrow('REDIS_URL');
   });
 
-  it('should throw if neither ANTHROPIC_API_KEY nor OPENROUTER_API_KEY is set', () => {
+  it('should throw if neither ANTHROPIC_API_KEY, OPENROUTER_API_KEY, nor KIE_AI_API_KEY is set', () => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
+    delete process.env.KIE_AI_API_KEY;
 
-    expect(() => validateEnv()).toThrow('Must set either ANTHROPIC_API_KEY or OPENROUTER_API_KEY');
+    expect(() => validateEnv()).toThrow('Must set either ANTHROPIC_API_KEY, OPENROUTER_API_KEY, or KIE_AI_API_KEY');
   });
 
   it('should throw if OPENROUTER_API_KEY is set but MODEL is missing', () => {

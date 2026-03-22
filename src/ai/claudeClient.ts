@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '../utils/logger';
 import { AITimeoutError, InsufficientCreditsError } from '../utils/errors';
 
-type Provider = 'anthropic' | 'openrouter';
+type Provider = 'anthropic' | 'openrouter' | 'kie';
 
 const MAX_RETRIES = 2;
 const TIMEOUT_MS = 60000;
@@ -21,8 +21,12 @@ function getAnthropicClient(): Anthropic {
 
 /**
  * Determine which AI provider to use based on environment variables
+ * Priority: KIE.AI > OpenRouter > Anthropic
  */
 function getProvider(): Provider {
+  if (process.env.KIE_AI_API_KEY) {
+    return 'kie';
+  }
   if (process.env.OPENROUTER_API_KEY) {
     return 'openrouter';
   }
@@ -104,8 +108,60 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string, maxToken
 }
 
 /**
- * Analyze content with Claude (using either Anthropic or OpenRouter)
- * Implements retry logic and timeout handling for both providers
+ * Call KIE.AI API using native fetch (OpenAI-compatible endpoint)
+ * Uses Claude Sonnet model via KIE.AI's unified API
+ */
+async function callKie(systemPrompt: string, userPrompt: string, maxTokens = 4096): Promise<string> {
+  const model = process.env.KIE_MODEL || 'claude-sonnet-4-6';
+  const apiKey = process.env.KIE_AI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('KIE_AI_API_KEY not set');
+  }
+
+  const response = await fetch('https://api.kie.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'shadow-user-agent',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0,
+      max_tokens: maxTokens,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    if (response.status === 402) {
+      const match = errorBody.match(/can only afford (\d+)/);
+      const available = match ? parseInt(match[1], 10) : 0;
+      throw new InsufficientCreditsError(available);
+    }
+    throw new Error(`KIE.AI API error: ${response.status} - ${errorBody}`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('Unexpected response format from KIE.AI');
+  }
+
+  return content;
+}
+
+/**
+ * Analyze content with Claude (using either Anthropic, OpenRouter, or KIE.AI)
+ * Implements retry logic and timeout handling for all providers
  */
 export async function analyzeWithClaude(
   systemPrompt: string,
@@ -118,9 +174,15 @@ export async function analyzeWithClaude(
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const call = provider === 'anthropic'
-        ? callAnthropic(systemPrompt, userPrompt, currentMaxTokens)
-        : callOpenRouter(systemPrompt, userPrompt, currentMaxTokens);
+      let call: Promise<string>;
+      
+      if (provider === 'anthropic') {
+        call = callAnthropic(systemPrompt, userPrompt, currentMaxTokens);
+      } else if (provider === 'kie') {
+        call = callKie(systemPrompt, userPrompt, currentMaxTokens);
+      } else {
+        call = callOpenRouter(systemPrompt, userPrompt, currentMaxTokens);
+      }
 
       const response = await Promise.race([
         call,

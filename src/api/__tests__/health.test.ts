@@ -73,40 +73,66 @@ describe('Health API', () => {
     it('should report anthropic as ai_provider when ANTHROPIC_API_KEY is set', async () => {
       const savedAnth = process.env.ANTHROPIC_API_KEY;
       const savedOR = process.env.OPENROUTER_API_KEY;
+      const savedKie = process.env.KIE_AI_API_KEY;
       process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
       delete process.env.OPENROUTER_API_KEY;
+      delete process.env.KIE_AI_API_KEY;
 
       const res = await request(app).get('/health');
 
       if (savedAnth !== undefined) process.env.ANTHROPIC_API_KEY = savedAnth;
       else delete process.env.ANTHROPIC_API_KEY;
       if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
+      else delete process.env.OPENROUTER_API_KEY;
+      if (savedKie !== undefined) process.env.KIE_AI_API_KEY = savedKie;
+      else delete process.env.KIE_AI_API_KEY;
 
       expect(res.body.ai_provider).toBe('anthropic');
     });
 
     it('should report openrouter as ai_provider when OPENROUTER_API_KEY is set', async () => {
       const savedOR = process.env.OPENROUTER_API_KEY;
+      const savedKie = process.env.KIE_AI_API_KEY;
       process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
+      delete process.env.KIE_AI_API_KEY;
 
       const res = await request(app).get('/health');
 
       if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
       else delete process.env.OPENROUTER_API_KEY;
+      if (savedKie !== undefined) process.env.KIE_AI_API_KEY = savedKie;
+      else delete process.env.KIE_AI_API_KEY;
 
       expect(res.body.ai_provider).toBe('openrouter');
+    });
+
+    it('should report kie as ai_provider when KIE_AI_API_KEY is set', async () => {
+      const savedKie = process.env.KIE_AI_API_KEY;
+      delete process.env.OPENROUTER_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+      process.env.KIE_AI_API_KEY = 'test-kie-key';
+
+      const res = await request(app).get('/health');
+
+      if (savedKie !== undefined) process.env.KIE_AI_API_KEY = savedKie;
+      else delete process.env.KIE_AI_API_KEY;
+
+      expect(res.body.ai_provider).toBe('kie');
     });
 
     it('should report missing as ai_provider when no AI keys are configured', async () => {
       const savedAnth = process.env.ANTHROPIC_API_KEY;
       const savedOR = process.env.OPENROUTER_API_KEY;
+      const savedKie = process.env.KIE_AI_API_KEY;
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.OPENROUTER_API_KEY;
+      delete process.env.KIE_AI_API_KEY;
 
       const res = await request(app).get('/health');
 
       if (savedAnth !== undefined) process.env.ANTHROPIC_API_KEY = savedAnth;
       if (savedOR !== undefined) process.env.OPENROUTER_API_KEY = savedOR;
+      if (savedKie !== undefined) process.env.KIE_AI_API_KEY = savedKie;
 
       expect(res.body.ai_provider).toBe('missing');
     });

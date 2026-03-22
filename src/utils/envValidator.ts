@@ -18,13 +18,14 @@ export function validateEnv(): void {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 
-  // Validate AI provider: must have either Anthropic or OpenRouter
+  // Validate AI provider: must have one of Anthropic, OpenRouter, or KIE.AI
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
   const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
+  const hasKie = !!process.env.KIE_AI_API_KEY;
 
-  if (!hasAnthropic && !hasOpenRouter) {
+  if (!hasAnthropic && !hasOpenRouter && !hasKie) {
     throw new Error(
-      'Must set either ANTHROPIC_API_KEY or OPENROUTER_API_KEY. See .env.example for configuration.'
+      'Must set either ANTHROPIC_API_KEY, OPENROUTER_API_KEY, or KIE_AI_API_KEY. See .env.example for configuration.'
     );
   }
 
@@ -34,6 +35,9 @@ export function validateEnv(): void {
       'MODEL must be set when using OPENROUTER_API_KEY (e.g., anthropic/claude-sonnet-4-20250514)'
     );
   }
+
+  // If using KIE.AI, KIE_MODEL should be set (optional, has default)
+  // No error thrown, just uses default model if not set
 
   // Validate NODE_ENV
   const validNodeEnv = ['development', 'production', 'test'];

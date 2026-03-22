@@ -31,10 +31,13 @@ describe('analyzeWithClaude', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     savedEnv = {
+      KIE_AI_API_KEY: process.env.KIE_AI_API_KEY,
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
       ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
       MODEL: process.env.MODEL,
+      KIE_MODEL: process.env.KIE_MODEL,
     };
+    delete process.env.KIE_AI_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
     process.env.ANTHROPIC_API_KEY = 'test-key';
   });
@@ -157,6 +160,89 @@ describe('analyzeWithClaude', () => {
 
       expect(error).toBeInstanceOf(InsufficientCreditsError);
       expect(error.availableTokens).toBe(750);
+    });
+  });
+
+  describe('KIE.AI provider', () => {
+    beforeEach(() => {
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENROUTER_API_KEY;
+      process.env.KIE_AI_API_KEY = 'test-kie-key';
+      process.env.KIE_MODEL = 'claude-sonnet-4-6';
+      global.fetch = vi.fn();
+    });
+
+    it('should call KIE.AI API and return response content', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'kie.ai response' } }],
+        }),
+      } as Response);
+
+      const result = await analyzeWithClaude('system', 'user');
+
+      expect(result).toBe('kie.ai response');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.kie.ai/v1/chat/completions',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should use default model if KIE_MODEL not set', async () => {
+      delete process.env.KIE_MODEL;
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'response' } }],
+        }),
+      } as Response);
+
+      await analyzeWithClaude('system', 'user');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.kie.ai/v1/chat/completions',
+        expect.objectContaining({
+          body: expect.stringContaining('"model":"claude-sonnet-4-6"'),
+        })
+      );
+    });
+
+    it('should throw InsufficientCreditsError on 402 response', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: false,
+        status: 402,
+        text: async () => 'can only afford 500 tokens in your budget',
+      } as Response);
+
+      await expect(analyzeWithClaude('system', 'user')).rejects.toBeInstanceOf(
+        InsufficientCreditsError
+      );
+    });
+
+    it('should parse available tokens from 402 response body', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: false,
+        status: 402,
+        text: async () => 'can only afford 1024 tokens',
+      } as Response);
+
+      const error = await analyzeWithClaude('system', 'user').catch((e) => e as InsufficientCreditsError);
+
+      expect(error).toBeInstanceOf(InsufficientCreditsError);
+      expect(error.availableTokens).toBe(1024);
+    });
+
+    it('should throw error on non-200 response', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => 'Internal server error',
+      } as Response);
+
+      await expect(analyzeWithClaude('system', 'user')).rejects.toThrow(
+        'KIE.AI API error: 500 - Internal server error'
+      );
     });
   });
 });
