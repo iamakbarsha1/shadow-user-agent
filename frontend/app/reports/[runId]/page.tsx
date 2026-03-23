@@ -60,6 +60,7 @@ export default function ReportViewer(): JSX.Element {
   const [run, setRun] = useState<RunData | null>(null);
   const [runLoading, setRunLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'bug_report' | 'code_review'>('bug_report');
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,6 +76,26 @@ export default function ReportViewer(): JSX.Element {
     void fetchData();
     void loadReports(runId);
   }, [runId, loadReports]);
+
+  const handleDownloadPDF = async () => {
+    setPdfDownloading(true);
+    try {
+      const blob = await api.downloadReportPDF(runId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shadow-report-${runId.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setPdfDownloading(false);
+    }
+  };
 
   const bugReportRaw = reports.find((r) => r.reportType === 'bug_report');
   const codeReviewRaw = reports.find((r) => r.reportType === 'code_review');
@@ -156,26 +177,54 @@ export default function ReportViewer(): JSX.Element {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex items-center justify-between border-b border-gray-200 mb-6">
+          <div className="flex">
+            <button
+              onClick={() => setActiveTab('bug_report')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'bug_report'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Bug Report
+            </button>
+            <button
+              onClick={() => setActiveTab('code_review')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'code_review'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Code Review
+            </button>
+          </div>
           <button
-            onClick={() => setActiveTab('bug_report')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'bug_report'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+            onClick={handleDownloadPDF}
+            disabled={pdfDownloading || reports.length === 0}
+            className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+              pdfDownloading || reports.length === 0
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            Bug Report
-          </button>
-          <button
-            onClick={() => setActiveTab('code_review')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'code_review'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Code Review
+            {pdfDownloading ? (
+              <span className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Generating...
+              </span>
+            ) : (
+              <span className="flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export PDF
+              </span>
+            )}
           </button>
         </div>
 

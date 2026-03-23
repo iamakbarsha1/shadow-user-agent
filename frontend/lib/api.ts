@@ -146,4 +146,25 @@ export const api = {
   async getReport(reportId: string): Promise<ReportResponse> {
     return fetchAPI<ReportResponse>(`/api/v1/reports/${reportId}`);
   },
+
+  async downloadReportPDF(runId: string): Promise<Blob> {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/runs/${runId}/reports/pdf`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorBody = (await response.json()) as { error?: { message?: string } };
+      throw new Error(errorBody.error?.message || 'PDF export failed');
+    }
+
+    return response.blob();
+  },
 };

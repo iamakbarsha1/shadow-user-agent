@@ -7,6 +7,7 @@ import { validateTargetUrl } from '../../utils/urlValidator';
 import { logger } from '../../utils/logger';
 import { enqueueAgentRun } from '../../worker/queue';
 import { prisma } from '../../db/client';
+import { generateReportPDF, type BugReportContent, type CodeReviewContent } from '../../utils/pdfGenerator';
 import type {
   CreateRunRequest,
   CreateRunResponse,
@@ -174,6 +175,48 @@ router.get('/:runId/reports', async (req: Request, res: Response, next: NextFunc
         createdAt: r.createdAt.toISOString(),
       })),
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/runs/:runId/reports/pdf
+ * Export reports as PDF
+ */
+router.get('/:runId/reports/pdf', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const runId = String(req.params['runId']);
+
+    const run = await findRunById(runId);
+    if (!run) {
+      throw new RunNotFoundError(runId);
+    }
+
+    const reports = await getReportsByRunId(runId);
+    const bugReport = reports.find((r) => r.reportType === 'bug_report');
+    const codeReview = reports.find((r) => r.reportType === 'code_review');
+
+    const pdfBuffer = await generateReportPDF(
+      {
+        runId: run.id,
+        url: run.url,
+        personaId: run.personaId,
+        status: run.status,
+        startedAt: run.startedAt.toISOString(),
+        completedAt: run.completedAt?.toISOString(),
+        observationCount: run.observations.length,
+      },
+      bugReport?.content as unknown as BugReportContent | undefined,
+      codeReview?.content as unknown as CodeReviewContent | undefined
+    );
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="shadow-report-${runId.slice(0, 8)}.pdf"`
+    );
+    res.send(pdfBuffer);
   } catch (error) {
     next(error);
   }
