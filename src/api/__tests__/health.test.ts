@@ -19,13 +19,15 @@ vi.mock('../../db/client', () => ({
   },
 }));
 
-// Mock ioredis
+// Mock ioredis - must provide call method for rate-limit-redis
 vi.mock('ioredis', () => {
   const RedisMock = vi.fn().mockImplementation(() => ({
     ping: vi.fn().mockResolvedValue('PONG'),
     disconnect: vi.fn(),
     quit: vi.fn(),
     on: vi.fn(),
+    call: vi.fn().mockResolvedValue('OK'),
+    connect: vi.fn().mockResolvedValue(undefined),
   }));
   return { default: RedisMock };
 });

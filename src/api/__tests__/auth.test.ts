@@ -2,6 +2,7 @@ import { vi, describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 
 // Mock queue (POST /runs triggers enqueueAgentRun)
 vi.mock('../../worker/queue', () => ({
@@ -9,6 +10,31 @@ vi.mock('../../worker/queue', () => ({
   getJobStatus: vi.fn(),
   closeQueue: vi.fn(),
 }));
+
+// Mock ioredis - must provide call method for rate-limit-redis
+vi.mock('ioredis', () => {
+  const RedisMock = vi.fn().mockImplementation(() => ({
+    ping: vi.fn().mockResolvedValue('PONG'),
+    disconnect: vi.fn(),
+    quit: vi.fn(),
+    on: vi.fn(),
+    // rate-limit-redis expects array responses for script commands
+    call: vi.fn().mockImplementation(async (command: string, ...args: string[]) => {
+      if (command === 'EVAL' || command === 'EVALSHA') {
+        return [0, 0]; // [timestamp, hits] format expected by rate-limit-redis
+      }
+      if (command === 'SCRIPT' && args[0] === 'EXISTS') {
+        return [0]; // Script doesn't exist, will trigger EVAL
+      }
+      return 'OK';
+    }),
+    connect: vi.fn().mockResolvedValue(undefined),
+  }));
+  return { default: RedisMock };
+});
+
+// Pre-compute password hash once to ensure consistent comparison
+const VALID_PASSWORD_HASH = bcrypt.hashSync('shadow_dev_2025', 10);
 
 // Mock prisma (POST /runs uses prisma.$transaction and run queries)
 vi.mock('../../db/client', () => {

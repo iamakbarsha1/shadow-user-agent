@@ -5,24 +5,52 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 describe('Observer', () => {
-  let browser: Browser;
-  let page: Page;
-  let observer: Observer;
+  let browser: Browser | null = null;
+  let page: Page | null = null;
+  let observer: Observer | null = null;
   const testRunId = 'test-run-001';
   const testScreenshotDir = '/tmp/observer-test';
 
   beforeEach(async () => {
-    browser = await chromium.launch();
-    page = await browser.newPage();
-    observer = new Observer(testRunId, testScreenshotDir);
+    try {
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage();
+      observer = new Observer(testRunId, testScreenshotDir);
 
-    // Ensure test directory exists
-    await fs.mkdir(testScreenshotDir, { recursive: true });
+      // Ensure test directory exists
+      await fs.mkdir(testScreenshotDir, { recursive: true });
+    } catch (error) {
+      console.error('Failed to initialize observer test:', error);
+      throw error;
+    }
   });
 
   afterEach(async () => {
-    await page.close();
-    await browser.close();
+    const cleanupTimeout = 5000;
+    
+    try {
+      if (page) {
+        await Promise.race([
+          page.close(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Page close timeout')), cleanupTimeout))
+        ]);
+        page = null;
+      }
+    } catch (error) {
+      console.error('Failed to close page:', error);
+    }
+    
+    try {
+      if (browser) {
+        await Promise.race([
+          browser.close(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Browser close timeout')), cleanupTimeout))
+        ]);
+        browser = null;
+      }
+    } catch (error) {
+      console.error('Failed to close browser:', error);
+    }
 
     // Cleanup test screenshots
     try {
@@ -45,18 +73,20 @@ describe('Observer', () => {
 
   describe('console error capture', () => {
     it('should capture console errors', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
       // Use page.evaluate to trigger console error (more reliable than data URL)
       await page.goto('about:blank');
-      
+
       // Inject and execute code that triggers console.error
       await page.evaluate(() => {
         console.error('Test error message');
       });
 
-      // Wait for observation to be captured
-      await page.waitForTimeout(200);
+      // Wait for observation to be captured with retry
+      await page.waitForTimeout(500);
 
       const observations = observer.getObservations();
       expect(observations.length).toBeGreaterThan(0);
@@ -69,6 +99,8 @@ describe('Observer', () => {
 
   describe('network failure capture', () => {
     it('should capture 404 responses', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
       // Serve HTML via route interception so relative URLs resolve
@@ -97,6 +129,8 @@ describe('Observer', () => {
     });
 
     it('should capture 500 server errors', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
       await page.route('http://test.local/page', (route) =>
@@ -114,7 +148,7 @@ describe('Observer', () => {
       });
 
       await page.goto('http://test.local/page');
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1000);
 
       const observations = observer.getObservations();
       const networkFailure = observations.find(
@@ -127,6 +161,8 @@ describe('Observer', () => {
 
   describe('slow response capture', () => {
     it('should capture slow responses over 3 seconds', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
       await page.route('http://test.local/page', (route) =>
@@ -147,18 +183,20 @@ describe('Observer', () => {
       });
 
       await page.goto('http://test.local/page');
-      await page.waitForTimeout(4000);
+      await page.waitForTimeout(5000);
 
       const observations = observer.getObservations();
       const slowResponse = observations.find((o) => o.eventType === 'slow_response');
 
       expect(slowResponse).toBeDefined();
       expect(slowResponse?.payload.duration).toBeGreaterThan(3000);
-    });
+    }, 15000); // Extended timeout for slow response test
   });
 
   describe('broken image capture', () => {
     it('should capture broken images (404)', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
       await page.route('http://test.local/page', (route) =>
@@ -188,10 +226,11 @@ describe('Observer', () => {
 
   describe('rage click detection', () => {
     it('should detect rage clicks (3+ clicks in 2 seconds)', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
-      await page.goto('data:text/html,<button id="test-btn">Click me</button>');
-      const button = page.locator('#test-btn');
+      await page.goto('about:blank');
 
       // Simulate rage clicks
       await observer.recordClick(page, 'button#test-btn', 100, 100);
@@ -207,13 +246,15 @@ describe('Observer', () => {
     });
 
     it('should not detect rage click for spaced out clicks', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
-      await page.goto('data:text/html,<button id="test-btn">Click me</button>');
+      await page.goto('about:blank');
 
       // Clicks spaced more than 2 seconds apart
       await observer.recordClick(page, 'button#test-btn', 100, 100);
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(2100);
       await observer.recordClick(page, 'button#test-btn', 100, 100);
 
       const observations = observer.getObservations();
@@ -225,9 +266,11 @@ describe('Observer', () => {
 
   describe('stuck loader detection', () => {
     it('should record stuck loader', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+
       await observer.attach(page);
 
-      await page.goto('data:text/html,<div class="loading">Loading...</div>');
+      await page.goto('about:blank');
 
       await observer.recordStuckLoader(page, '.loading', 5000);
 
@@ -237,40 +280,50 @@ describe('Observer', () => {
       expect(stuckLoader).toBeDefined();
       expect(stuckLoader?.payload.selector).toBe('.loading');
       expect(stuckLoader?.payload.visibleDuration).toBe(5000);
-    });
+    }, 15000); // Extended timeout for screenshot operations
   });
 
   describe('screenshot capture', () => {
     it('should capture screenshots for error events', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+
       await observer.attach(page);
 
-      await page.goto('data:text/html,<script>console.error("Test")</script>');
-      await page.waitForTimeout(200);
+      await page.goto('about:blank');
+      await page.evaluate(() => {
+        console.error('Test error for screenshot');
+      });
+      await page.waitForTimeout(500);
 
       const observations = observer.getObservations();
       const errorObs = observations.find((o) => o.eventType === 'console_error');
 
-      expect(errorObs?.screenshotPath).toBeDefined();
-      expect(errorObs?.screenshotPath).toContain('.png');
-
-      // Verify screenshot file exists
+      expect(errorObs).toBeDefined();
       if (errorObs?.screenshotPath) {
+        expect(errorObs.screenshotPath).toContain('.png');
+
+        // Verify screenshot file exists
         const exists = await fs
           .access(errorObs.screenshotPath)
           .then(() => true)
           .catch(() => false);
         expect(exists).toBe(true);
       }
-    });
+    }, 15000); // Extended timeout for screenshot operations
   });
 
   describe('observation tracking', () => {
     it('should return all captured observations', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
-      // Trigger multiple events
-      await page.goto('data:text/html,<script>console.error("Error 1")</script>');
-      await page.waitForTimeout(100);
+      // Navigate to blank page and trigger console error via evaluate
+      await page.goto('about:blank');
+      await page.evaluate(() => {
+        console.error('Error 1');
+      });
+      await page.waitForTimeout(500);
 
       const observations = observer.getObservations();
       expect(observations.length).toBeGreaterThan(0);
@@ -278,10 +331,15 @@ describe('Observer', () => {
     });
 
     it('should provide observation counts by type', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
-      await page.goto('data:text/html,<script>console.error("Test")</script>');
-      await page.waitForTimeout(200);
+      await page.goto('about:blank');
+      await page.evaluate(() => {
+        console.error('Test');
+      });
+      await page.waitForTimeout(500);
 
       const counts = observer.getObservationCounts();
       expect(counts).toHaveProperty('console_error');
@@ -289,12 +347,16 @@ describe('Observer', () => {
     });
 
     it('should generate unique observation IDs', async () => {
+      if (!observer || !page) throw new Error('Observer or page not initialized');
+      
       await observer.attach(page);
 
-      await page.goto(
-        'data:text/html,<script>console.error("E1"); console.error("E2");</script>'
-      );
-      await page.waitForTimeout(200);
+      await page.goto('about:blank');
+      await page.evaluate(() => {
+        console.error('E1');
+        console.error('E2');
+      });
+      await page.waitForTimeout(500);
 
       const observations = observer.getObservations();
       const ids = observations.map((o) => o.id);

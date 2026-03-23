@@ -3,24 +3,52 @@ import { FormFiller } from '../formFiller';
 import { chromium, type Browser, type Page } from 'playwright';
 
 describe('FormFiller', () => {
-  let browser: Browser;
-  let page: Page;
+  let browser: Browser | null = null;
+  let page: Page | null = null;
 
   beforeEach(async () => {
-    browser = await chromium.launch();
-    page = await browser.newPage();
+    try {
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage();
+    } catch (error) {
+      console.error('Failed to launch browser:', error);
+      throw error;
+    }
   });
 
   afterEach(async () => {
-    await page.close();
-    await browser.close();
+    const cleanupTimeout = 5000;
+    
+    try {
+      if (page) {
+        await Promise.race([
+          page.close(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Page close timeout')), cleanupTimeout))
+        ]);
+        page = null;
+      }
+    } catch (error) {
+      console.error('Failed to close page:', error);
+    }
+    
+    try {
+      if (browser) {
+        await Promise.race([
+          browser.close(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Browser close timeout')), cleanupTimeout))
+        ]);
+        browser = null;
+      }
+    } catch (error) {
+      console.error('Failed to close browser:', error);
+    }
   });
 
   describe('careful strategy', () => {
     it('should fill all required fields', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <input type="text" name="name" required />
           <input type="email" name="email" required />
@@ -40,7 +68,7 @@ describe('FormFiller', () => {
     it('should use realistic values based on field names', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <input type="text" name="firstName" />
           <input type="text" name="lastName" />
@@ -62,7 +90,7 @@ describe('FormFiller', () => {
     it('should fill select dropdowns', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <select name="country">
             <option value="">Select...</option>
@@ -81,7 +109,7 @@ describe('FormFiller', () => {
     it('should check checkboxes', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <input type="checkbox" name="agree" />
         </form>
@@ -98,7 +126,7 @@ describe('FormFiller', () => {
     it('should skip optional fields', async () => {
       const filler = new FormFiller('fast');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <input type="text" name="required" required />
           <input type="text" name="optional" />
@@ -138,7 +166,7 @@ describe('FormFiller', () => {
     it('should use edge case values', async () => {
       const filler = new FormFiller('random');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <input type="text" name="field1" />
           <input type="text" name="field2" />
@@ -166,7 +194,7 @@ describe('FormFiller', () => {
     it('should randomly select dropdown options', async () => {
       const filler = new FormFiller('random');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <select name="choice">
             <option value="a">A</option>
@@ -187,7 +215,7 @@ describe('FormFiller', () => {
     it('should properly fill email fields', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <input type="email" name="userEmail" />
         </form>
@@ -202,7 +230,7 @@ describe('FormFiller', () => {
     it('should properly fill phone fields', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <input type="tel" name="phone" />
         </form>
@@ -211,13 +239,13 @@ describe('FormFiller', () => {
       await filler.fillFormsOnPage(page);
 
       const value = await page.locator('[name="phone"]').inputValue();
-      expect(value).toContain('-'); // Phone format with dashes
+      expect(value).toBe('555-123-4567');
     });
 
     it('should properly fill URL fields', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <input type="url" name="website" />
         </form>
@@ -226,13 +254,13 @@ describe('FormFiller', () => {
       await filler.fillFormsOnPage(page);
 
       const value = await page.locator('[name="website"]').inputValue();
-      expect(value).toMatch(/^https?:\/\//); // Valid URL format
+      expect(value).toBe('https://example.com');
     });
 
     it('should fill textareas with longer text', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form>
           <textarea name="comments"></textarea>
         </form>
@@ -249,7 +277,7 @@ describe('FormFiller', () => {
     it('should fill multiple forms on a page', async () => {
       const filler = new FormFiller('careful');
 
-      await page.goto(`data:text/html,
+      await page.setContent(`
         <form id="form1">
           <input type="text" name="field1" />
         </form>
