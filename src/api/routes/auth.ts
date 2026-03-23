@@ -8,6 +8,9 @@ import { logger } from '../../utils/logger';
 
 const router = Router();
 
+// Pre-compute password hash at module load time for consistent comparison
+const VALID_PASSWORD_HASH = bcrypt.hashSync('shadow_dev_2025', 10);
+
 /**
  * POST /auth/login
  * Authenticate user and issue JWT token
@@ -21,7 +24,6 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
 
     // Hardcoded dev credentials (matching DEPLOYMENT.md)
     const VALID_EMAIL = 'admin@concertIDC.internal';
-    const VALID_PASSWORD_HASH = await bcrypt.hash('shadow_dev_2025', 10);
 
     // Validate credentials
     if (body.email !== VALID_EMAIL) {

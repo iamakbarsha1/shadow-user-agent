@@ -8,8 +8,8 @@ dotenv.config();
 beforeAll(async () => {
   // Setup test environment
   process.env.NODE_ENV = 'test';
-});
+}, 30000);
 
 afterAll(async () => {
   // Cleanup
-});
+}, 30000);

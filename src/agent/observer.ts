@@ -297,7 +297,16 @@ export class Observer {
       const filename = `${eventType}_${timestamp}.png`;
       const filepath = path.join(this.screenshotDir, filename);
 
-      await page.screenshot({ path: filepath, fullPage: false });
+      // Wait for page to be stable before taking screenshot
+      await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+      
+      // Take screenshot with timeout
+      const screenshotPromise = page.screenshot({ path: filepath, fullPage: false });
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Screenshot timeout')), 10000)
+      );
+      
+      await Promise.race([screenshotPromise, timeoutPromise]);
 
       return filepath;
     } catch (error) {
