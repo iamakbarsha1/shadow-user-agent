@@ -76,3 +76,11 @@ export class InsufficientCreditsError extends Error {
     this.availableTokens = availableTokens;
   }
 }
+
+export class TestCaseNotFoundError extends Error {
+  code = 'TEST_CASE_NOT_FOUND';
+  constructor(id: string) {
+    super(`Test case not found: ${id}`);
+    this.name = 'TestCaseNotFoundError';
+  }
+}

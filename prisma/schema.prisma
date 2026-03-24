@@ -21,6 +21,7 @@ model Run {
 
   observations Observation[]
   reports      Report[]
+  testCases    TestCase[]
 
   @@index([status])
   @@index([startedAt])
@@ -56,6 +57,28 @@ model Report {
   @@index([runId])
   @@index([reportType])
   @@map("reports")
+}
+
+// Generated test cases from agent sessions
+model TestCase {
+  id          String    @id @default(uuid()) @db.Uuid
+  runId       String    @map("run_id") @db.Uuid
+  title       String
+  description String?
+  testCode    String    @map("test_code") @db.Text
+  framework   String    @default("playwright")
+  status      String    @default("generated") // 'generated' | 'passing' | 'failing' | 'stale'
+  lastRunAt   DateTime? @map("last_run_at") @db.Timestamptz(3)
+  lastResult  Json?     @map("last_result") @db.JsonB
+  selectorMap Json?     @map("selector_map") @db.JsonB
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([status])
+  @@map("test_cases")
 }
 
 // Screenshots linked to observations

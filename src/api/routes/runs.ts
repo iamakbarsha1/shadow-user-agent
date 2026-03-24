@@ -72,6 +72,8 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       runId: run.id,
       url: body.url,
       personaId: body.personaId,
+      generateTests: body.generateTests,
+      prd: body.prd,
       options: body.options,
     });
 

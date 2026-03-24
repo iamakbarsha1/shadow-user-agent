@@ -8,6 +8,8 @@ interface LoginResponse {
 interface CreateRunRequest {
   url: string;
   personaId: string;
+  generateTests?: boolean;
+  prd?: string;
   options?: {
     maxSteps?: number;
     authCredentials?: { username: string; password: string };
@@ -64,6 +66,32 @@ interface ReportResponse {
   reportType: string;
   content: Record<string, unknown>;
   createdAt: string;
+}
+
+export interface TestCase {
+  id: string;
+  runId: string;
+  title: string;
+  description?: string;
+  testCode: string;
+  framework: string;
+  status: string;
+  lastRunAt?: string;
+  selectorMap?: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ListTestCasesResponse {
+  runId: string;
+  testCases: TestCase[];
+  total: number;
+}
+
+interface UpdateTestCaseRequest {
+  title?: string;
+  description?: string;
+  testCode?: string;
 }
 
 let authToken: string | null = null;
@@ -145,6 +173,29 @@ export const api = {
 
   async getReport(reportId: string): Promise<ReportResponse> {
     return fetchAPI<ReportResponse>(`/api/v1/reports/${reportId}`);
+  },
+
+  async listTestCases(runId: string): Promise<ListTestCasesResponse> {
+    return fetchAPI<ListTestCasesResponse>(`/api/v1/runs/${runId}/test-cases`);
+  },
+
+  async getTestCase(id: string): Promise<TestCase> {
+    return fetchAPI<TestCase>(`/api/v1/test-cases/${id}`);
+  },
+
+  async updateTestCase(id: string, data: UpdateTestCaseRequest): Promise<TestCase> {
+    return fetchAPI<TestCase>(`/api/v1/test-cases/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteTestCase(id: string): Promise<{ deleted: boolean }> {
+    return fetchAPI<{ deleted: boolean }>(`/api/v1/test-cases/${id}`, { method: 'DELETE' });
+  },
+
+  getTestCaseDownloadUrl(id: string): string {
+    return `${API_BASE_URL}/api/v1/test-cases/${id}/download`;
   },
 
   async downloadReportPDF(runId: string): Promise<Blob> {

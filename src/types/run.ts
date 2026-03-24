@@ -7,6 +7,8 @@ export type RunStatus = 'pending' | 'running' | 'complete' | 'failed';
 export interface CreateRunRequest {
   url: string;
   personaId: string;
+  generateTests?: boolean;
+  prd?: string;
   options?: {
     maxSteps?: number;
     authCredentials?: {

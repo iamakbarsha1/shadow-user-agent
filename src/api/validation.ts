@@ -14,6 +14,8 @@ export const createRunSchema = z.object({
   personaId: z.enum(['new_user', 'power_user', 'mobile_user', 'edge_case'], {
     errorMap: () => ({ message: 'Invalid persona ID' }),
   }),
+  generateTests: z.boolean().optional(),
+  prd: z.string().optional(),
   options: z
     .object({
       maxSteps: z.number().int().min(1).max(100).optional(),

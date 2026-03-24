@@ -15,6 +15,7 @@ import { saveReport } from '../db/queries/reports';
 import { analyzeWithClaude } from '../ai/claudeClient';
 import { buildSessionAnalysisPrompt, buildCodeReviewPrompt } from '../ai/promptBuilder';
 import { parseAnalysisReport, parseCodeReviewReport } from '../ai/responseParser';
+import { generateTestCases } from '../ai/testCodeGenerator';
 import { logger } from '../utils/logger';
 import type { SessionLog } from '../types/observation';
 
@@ -26,7 +27,7 @@ import type { SessionLog } from '../types/observation';
  */
 
 export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLog | SkippedJobResult> {
-  const { runId, url, personaId, options } = job.data;
+  const { runId, url, personaId, options, generateTests, prd } = job.data;
 
   logger.info(
     {
@@ -146,6 +147,16 @@ export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLo
 
       await saveReport(runId, 'code_review', codeReview);
       logger.info({ runId }, 'Code review saved');
+
+      // Test code generation (optional, triggered by generateTests flag)
+      if (generateTests) {
+        try {
+          await generateTestCases(runId, url, sessionLog, prd);
+        } catch (genError) {
+          // Non-fatal: log and continue — failing to generate tests shouldn't fail the run
+          logger.error({ genError, runId }, 'Test code generation failed (non-fatal)');
+        }
+      }
     } catch (error) {
       logger.error({ error, runId }, 'AI analysis failed');
       throw error; // propagates to outer catch → marks run as 'failed'

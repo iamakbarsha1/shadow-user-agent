@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../../lib/api';
 import { useReportStore } from '../../../stores/useReportStore';
+import { useTestCaseStore } from '../../../stores/useTestCaseStore';
 
 interface RunData {
   runId: string;
@@ -64,10 +65,12 @@ export default function ReportViewer(): JSX.Element {
   const params = useParams();
   const runId = params.runId as string;
   const { reports, loading: reportsLoading, error, loadReports } = useReportStore();
+  const { testCases, loading: testCasesLoading, loadTestCases, deleteTestCase } = useTestCaseStore();
   const [run, setRun] = useState<RunData | null>(null);
   const [runLoading, setRunLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'bug_report' | 'code_review'>('bug_report');
+  const [activeTab, setActiveTab] = useState<'bug_report' | 'code_review' | 'generated_tests'>('bug_report');
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,7 +85,8 @@ export default function ReportViewer(): JSX.Element {
     };
     void fetchData();
     void loadReports(runId);
-  }, [runId, loadReports]);
+    void loadTestCases(runId);
+  }, [runId, loadReports, loadTestCases]);
 
   const handleDownloadPDF = async () => {
     setPdfDownloading(true);
@@ -109,7 +113,24 @@ export default function ReportViewer(): JSX.Element {
   const bugReportContent = bugReportRaw?.content as unknown as BugReportContent | undefined;
   const codeReviewContent = codeReviewRaw?.content as unknown as CodeReviewContent | undefined;
 
-  const loading = runLoading || reportsLoading;
+  const loading = runLoading || reportsLoading || testCasesLoading;
+
+  const handleCopyCode = async (id: string, code: string) => {
+    await navigator.clipboard.writeText(code);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleDownloadTestCase = (id: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const url = api.getTestCaseDownloadUrl(id);
+    const link = document.createElement('a');
+    link.href = url;
+    if (token) link.setAttribute('data-token', token);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (loading) {
     return (
@@ -224,6 +245,21 @@ export default function ReportViewer(): JSX.Element {
                 }`}
               >
                 Code Review
+              </button>
+              <button
+                onClick={() => setActiveTab('generated_tests')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-200 inline-flex items-center gap-2 ${
+                  activeTab === 'generated_tests'
+                    ? 'border-accent text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Generated Tests
+                {testCases.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-accent/20 text-accent text-xs font-semibold">
+                    {testCases.length}
+                  </span>
+                )}
               </button>
             </div>
             <button
@@ -431,6 +467,87 @@ export default function ReportViewer(): JSX.Element {
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+        ) : activeTab === 'generated_tests' ? (
+          <div className="space-y-6">
+            {testCases.length === 0 ? (
+              <div className="text-center py-16 px-6 rounded-lg bg-card border border-border">
+                <svg className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                <p className="text-muted-foreground">No test cases generated</p>
+                <p className="text-sm text-muted-foreground mt-1">Enable &quot;Generate Tests&quot; when creating a run to generate Playwright test cases</p>
+              </div>
+            ) : (
+              testCases.map((tc) => {
+                const statusColors: Record<string, string> = {
+                  generated: 'bg-blue-950/40 text-blue-300 border-blue-700',
+                  passing: 'bg-emerald-950/40 text-emerald-300 border-emerald-700',
+                  failing: 'bg-red-950/40 text-red-300 border-red-700',
+                  stale: 'bg-amber-950/40 text-amber-300 border-amber-700',
+                };
+                return (
+                  <div key={tc.id} className="rounded-lg bg-card border border-border overflow-hidden">
+                    <div className="px-6 py-4 flex items-center justify-between gap-4 border-b border-border">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-semibold text-foreground truncate">{tc.title}</h3>
+                        {tc.description && (
+                          <p className="text-sm text-muted-foreground mt-0.5 truncate">{tc.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border capitalize ${statusColors[tc.status] ?? statusColors.generated}`}>
+                          {tc.status}
+                        </span>
+                        <button
+                          onClick={() => void handleCopyCode(tc.id, tc.testCode)}
+                          className="px-3 py-1.5 rounded-lg bg-muted hover:bg-border text-foreground text-xs font-medium transition-colors duration-200 inline-flex items-center gap-1.5"
+                        >
+                          {copiedId === tc.id ? (
+                            <>
+                              <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              Copy
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDownloadTestCase(tc.id)}
+                          className="px-3 py-1.5 rounded-lg bg-muted hover:bg-border text-foreground text-xs font-medium transition-colors duration-200 inline-flex items-center gap-1.5"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          .spec.ts
+                        </button>
+                        <button
+                          onClick={() => void deleteTestCase(tc.id)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-950/20 transition-colors duration-200"
+                          title="Delete test case"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <pre className="p-4 overflow-x-auto text-xs font-mono text-muted-foreground bg-muted/30 max-h-80 overflow-y-auto leading-relaxed">
+                        <code>{tc.testCode}</code>
+                      </pre>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         ) : (
