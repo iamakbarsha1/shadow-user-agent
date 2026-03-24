@@ -12,7 +12,7 @@ Nine phases transform Shadow User Agent from a bug-detection tool into a full Te
 - [ ] **Phase 12: Auto-Healing** — Diagnose test failures and auto-fix broken selectors
 - [ ] **Phase 13: Smart Test Groups + IDE Fix Recommendations** — Organize tests, push fixes to IDE
 - [ ] **Phase 14: Credit-Based Usage Tracking** — Metering and quota enforcement
-- [ ] **Phase 15: API Testing** — OpenAPI/Swagger spec-based backend testing
+- [x] **Phase 15: API Testing** — OpenAPI/Swagger spec-based backend testing (completed 2026-03-24)
 - [ ] **Phase 16: Security Testing** — XSS, CSRF, headers, cookies, redirects
 - [ ] **Phase 17: Cloud Sandbox Execution** — Ephemeral Docker containers per run
 
@@ -158,6 +158,6 @@ Plans:
 | 12. Auto-Healing | 0/2 | Not started | - |
 | 13. Smart Test Groups | 0/2 | Not started | - |
 | 14. Credit Tracking | 0/2 | Not started | - |
-| 15. API Testing | 1/2 | In Progress|  |
+| 15. API Testing | 1/2 | Complete    | 2026-03-24 |
 | 16. Security Testing | 0/2 | Not started | - |
 | 17. Cloud Sandbox | 0/2 | Not started | - |
