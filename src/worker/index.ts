@@ -6,7 +6,14 @@ import { logger } from '../utils/logger';
 import { prisma } from '../db/client';
 import { processAgentJob } from './agentJob';
 import { cleanupOldScreenshots } from './screenshotCleanup';
+import {
+  processScheduledJob,
+  restoreSchedules,
+  closeScheduledQueue,
+  SCHEDULED_QUEUE_NAME,
+} from './scheduledRunner';
 import type { AgentJobData } from './queue';
+import type { ScheduledJobData } from './scheduledRunner';
 
 /**
  * BullMQ worker entry point.
@@ -102,7 +109,10 @@ async function startWorker(): Promise<void> {
       await tempQueue.close();
     }
 
-    // Create BullMQ worker
+    // Restore all enabled schedules as repeatable BullMQ jobs
+    await restoreSchedules();
+
+    // Create BullMQ worker for agent runs
     worker = new Worker<AgentJobData>('agent-run', processAgentJob, {
       connection: bullConnection,
       concurrency: maxConcurrency,
@@ -110,6 +120,17 @@ async function startWorker(): Promise<void> {
         max: maxConcurrency,
         duration: 1000, // Max N jobs per second
       },
+    });
+
+    // Create BullMQ worker for scheduled runs
+    const scheduledWorker = new Worker<ScheduledJobData>(
+      SCHEDULED_QUEUE_NAME,
+      processScheduledJob,
+      { connection: bullConnection, concurrency: 1 }
+    );
+
+    scheduledWorker.on('failed', (job, err) => {
+      logger.error({ jobId: job?.id, scheduleId: job?.data.scheduleId, err }, 'Scheduled job failed');
     });
 
     // Worker event handlers
@@ -175,6 +196,7 @@ async function startWorker(): Promise<void> {
         await worker.close();
       }
 
+      await closeScheduledQueue();
       await prisma.$disconnect();
       await connection.quit();
 

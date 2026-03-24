@@ -9,6 +9,7 @@ import authRouter from './routes/auth';
 import runsRouter from './routes/runs';
 import reportsRouter from './routes/reports';
 import testCasesRouter from './routes/testCases';
+import schedulesRouter from './routes/schedules';
 import { logger } from '../utils/logger';
 import path from 'path';
 
@@ -50,6 +51,7 @@ export function createApp(): Express {
   app.use('/api/v1/runs', authenticateJWT);
   app.use('/api/v1/reports', authenticateJWT);
   app.use('/api/v1/test-cases', authenticateJWT);
+  app.use('/api/v1/schedules', authenticateJWT);
 
   // Apply stricter rate limit to POST /runs
   app.post('/api/v1/runs', createRunRateLimit);
@@ -60,6 +62,7 @@ export function createApp(): Express {
   app.use('/api/v1/test-cases', testCasesRouter);
   // Run-scoped test-cases (GET /api/v1/runs/:runId/test-cases)
   app.use('/api/v1', testCasesRouter);
+  app.use('/api/v1/schedules', schedulesRouter);
 
   // Screenshot serving with path traversal protection
   const screenshotBase = process.env.SCREENSHOT_STORAGE_PATH || '/tmp/agent-sessions';

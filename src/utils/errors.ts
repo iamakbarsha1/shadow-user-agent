@@ -84,3 +84,11 @@ export class TestCaseNotFoundError extends Error {
     this.name = 'TestCaseNotFoundError';
   }
 }
+
+export class ScheduleNotFoundError extends Error {
+  code = 'SCHEDULE_NOT_FOUND';
+  constructor(id: string) {
+    super(`Schedule not found: ${id}`);
+    this.name = 'ScheduleNotFoundError';
+  }
+}

@@ -30,6 +30,57 @@ export const createRunSchema = z.object({
     .optional(),
 });
 
+export const createScheduleSchema = z.object({
+  url: z.string().url('Invalid URL format'),
+  personaId: z.enum(['new_user', 'power_user', 'mobile_user', 'edge_case'], {
+    errorMap: () => ({ message: 'Invalid persona ID' }),
+  }),
+  cronExpression: z
+    .string()
+    .min(1)
+    .refine(
+      (val) => {
+        const parts = val.trim().split(/\s+/);
+        return parts.length >= 5 && parts.length <= 6;
+      },
+      { message: 'Invalid cron expression (must have 5–6 fields)' }
+    ),
+  label: z.string().max(100).optional(),
+  generateTests: z.boolean().optional(),
+});
+
+export const updateScheduleSchema = z.object({
+  url: z.string().url('Invalid URL format').optional(),
+  personaId: z
+    .enum(['new_user', 'power_user', 'mobile_user', 'edge_case'], {
+      errorMap: () => ({ message: 'Invalid persona ID' }),
+    })
+    .optional(),
+  cronExpression: z
+    .string()
+    .min(1)
+    .refine(
+      (val) => {
+        const parts = val.trim().split(/\s+/);
+        return parts.length >= 5 && parts.length <= 6;
+      },
+      { message: 'Invalid cron expression (must have 5–6 fields)' }
+    )
+    .optional(),
+  label: z.string().max(100).nullable().optional(),
+  enabled: z.boolean().optional(),
+  generateTests: z.boolean().optional(),
+});
+
+export const listSchedulesQuerySchema = z.object({
+  enabled: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 export const listRunsQuerySchema = z.object({
   status: z.enum(['pending', 'running', 'complete', 'failed']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),

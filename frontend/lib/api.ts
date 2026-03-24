@@ -94,6 +94,44 @@ interface UpdateTestCaseRequest {
   testCode?: string;
 }
 
+export interface Schedule {
+  id: string;
+  url: string;
+  personaId: string;
+  cronExpression: string;
+  enabled: boolean;
+  label: string | null;
+  generateTests: boolean;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CreateScheduleRequest {
+  url: string;
+  personaId: string;
+  cronExpression: string;
+  label?: string;
+  generateTests?: boolean;
+}
+
+interface UpdateScheduleRequest {
+  url?: string;
+  personaId?: string;
+  cronExpression?: string;
+  label?: string;
+  enabled?: boolean;
+  generateTests?: boolean;
+}
+
+interface ListSchedulesResponse {
+  schedules: Schedule[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 let authToken: string | null = null;
 
 export function setAuthToken(token: string): void {
@@ -196,6 +234,33 @@ export const api = {
 
   getTestCaseDownloadUrl(id: string): string {
     return `${API_BASE_URL}/api/v1/test-cases/${id}/download`;
+  },
+
+  async listSchedules(params?: { enabled?: boolean; limit?: number; offset?: number }): Promise<ListSchedulesResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.enabled !== undefined) searchParams.set('enabled', String(params.enabled));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.offset) searchParams.set('offset', String(params.offset));
+    const query = searchParams.toString();
+    return fetchAPI<ListSchedulesResponse>(`/api/v1/schedules${query ? `?${query}` : ''}`);
+  },
+
+  async createSchedule(data: CreateScheduleRequest): Promise<Schedule> {
+    return fetchAPI<Schedule>('/api/v1/schedules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateSchedule(id: string, data: UpdateScheduleRequest): Promise<Schedule> {
+    return fetchAPI<Schedule>(`/api/v1/schedules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteSchedule(id: string): Promise<{ deleted: boolean }> {
+    return fetchAPI<{ deleted: boolean }>(`/api/v1/schedules/${id}`, { method: 'DELETE' });
   },
 
   async downloadReportPDF(runId: string): Promise<Blob> {

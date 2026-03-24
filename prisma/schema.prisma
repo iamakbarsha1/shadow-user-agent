@@ -93,6 +93,24 @@ model TestCase {
   @@map("test_cases")
 }
 
+// Scheduled recurring runs
+model Schedule {
+  id             String    @id @default(uuid()) @db.Uuid
+  url            String
+  personaId      String    @map("persona_id")
+  cronExpression String    @map("cron_expression")
+  enabled        Boolean   @default(true)
+  label          String?
+  generateTests  Boolean   @default(false) @map("generate_tests")
+  lastRunAt      DateTime? @map("last_run_at") @db.Timestamptz(3)
+  nextRunAt      DateTime? @map("next_run_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([enabled])
+  @@map("schedules")
+}
+
 // Screenshots linked to observations
 model Screenshot {
   id            String      @id @default(uuid()) @db.Uuid

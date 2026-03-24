@@ -10,6 +10,8 @@ import {
   RunLimitExceededError,
   AgentCrashError,
   AITimeoutError,
+  ScheduleNotFoundError,
+  TestCaseNotFoundError,
 } from '../../utils/errors';
 import { ValidationError } from '../validation';
 
@@ -56,7 +58,12 @@ export function errorHandler(
     statusCode = 401;
     code = err.code;
     message = err.message;
-  } else if (err instanceof RunNotFoundError || err instanceof ReportNotFoundError) {
+  } else if (
+    err instanceof RunNotFoundError ||
+    err instanceof ReportNotFoundError ||
+    err instanceof ScheduleNotFoundError ||
+    err instanceof TestCaseNotFoundError
+  ) {
     statusCode = 404;
     code = err.code;
     message = err.message;
