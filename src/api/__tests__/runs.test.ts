@@ -46,6 +46,23 @@ vi.mock('../../db/client', () => {
       delete: vi.fn(),
       deleteMany: vi.fn(),
     },
+    creditAllocation: {
+      findUnique: vi.fn().mockResolvedValue({
+        id: 'alloc-1',
+        userId: 'dev-user',
+        totalCredits: 500,
+        usedCredits: 0,
+        periodStart: new Date(),
+        periodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      create: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    usageRecord: {
+      create: vi.fn().mockResolvedValue({ id: 'usage-1' }),
+    },
     $transaction: vi.fn(),
     $disconnect: vi.fn(),
     $queryRaw: vi.fn(),
@@ -65,6 +82,14 @@ const mockPrisma = prisma as unknown as {
     count: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
     deleteMany: ReturnType<typeof vi.fn>;
+  };
+  creditAllocation: {
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
+  };
+  usageRecord: {
+    create: ReturnType<typeof vi.fn>;
   };
   $transaction: ReturnType<typeof vi.fn>;
   $disconnect: ReturnType<typeof vi.fn>;
@@ -109,8 +134,23 @@ describe('Runs API', () => {
     // Default: no active runs
     mockPrisma.run.count.mockResolvedValue(0);
 
-    // $transaction calls the callback with a tx proxy that delegates to the same mock
-    mockPrisma.$transaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
+    // creditAllocation: always return sufficient credits
+    const mockAlloc = {
+      id: 'alloc-1', userId: 'test-user', totalCredits: 500, usedCredits: 0,
+      periodStart: new Date(), periodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    mockPrisma.creditAllocation.findUnique.mockResolvedValue(mockAlloc);
+    mockPrisma.creditAllocation.create.mockResolvedValue(mockAlloc);
+    mockPrisma.creditAllocation.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.usageRecord.create.mockResolvedValue({ id: 'usage-1' });
+
+    // $transaction handles both callback form (run creation) and array form (recordUsage)
+    mockPrisma.$transaction.mockImplementation(async (cbOrArray: ((tx: unknown) => Promise<unknown>) | Promise<unknown>[]) => {
+      if (Array.isArray(cbOrArray)) {
+        return Promise.all(cbOrArray);
+      }
+      const cb = cbOrArray;
       const txProxy = {
         run: {
           create: vi.fn().mockImplementation(async (args: { data: Record<string, unknown> }) => {

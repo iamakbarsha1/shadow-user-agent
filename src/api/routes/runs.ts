@@ -8,6 +8,9 @@ import { logger } from '../../utils/logger';
 import { enqueueAgentRun } from '../../worker/queue';
 import { prisma } from '../../db/client';
 import { generateReportPDF, type BugReportContent, type CodeReviewContent } from '../../utils/pdfGenerator';
+import { requireCredits } from '../middleware/creditGuard';
+import { recordUsage } from '../../db/queries/usage';
+import { CREDIT_COSTS } from '../../types/usage';
 import type {
   CreateRunRequest,
   CreateRunResponse,
@@ -21,7 +24,7 @@ const router = Router();
  * POST /api/v1/runs
  * Create a new agent run
  */
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', requireCredits(CREDIT_COSTS.run), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = validateRequest(createRunSchema, req.body) as CreateRunRequest;
 
@@ -76,6 +79,13 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       prd: body.prd,
       options: body.options,
     });
+
+    // Record usage (fire-and-forget; don't block response)
+    const userId = req.user?.userId ?? 'anonymous';
+    recordUsage(userId, 'run', CREDIT_COSTS.run, run.id).catch(() => {});
+    if (body.generateTests) {
+      recordUsage(userId, 'test_generation', CREDIT_COSTS.test_generation, run.id).catch(() => {});
+    }
 
     const response: CreateRunResponse = {
       runId: run.id,

@@ -50,7 +50,8 @@
       "Read(//Users/akbarsha/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/.claude/skills/ui-ux-pro-max/**)",
       "Bash(python3 scripts/search.py \"dashboard SaaS monitoring minimalism zen clean breathing-space\" --design-system -p \"Shadow User Agent Dashboard\" -f markdown)",
       "Bash(cd /Users/akbarsha/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/.claude/skills/ui-ux-pro-max && python3 scripts/search.py \"dark mode minimalism contrast zen\" --domain color -n 5)",
-      "Skill(gsd:progress)"
+      "Skill(gsd:progress)",
+      "Skill(gsd:next)"
     ]
   }
 }

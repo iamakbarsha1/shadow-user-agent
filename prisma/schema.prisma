@@ -162,6 +162,35 @@ model Schedule {
   @@map("schedules")
 }
 
+// Tracks every billable action per user
+model UsageRecord {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id")
+  action    String   // run | test_generation | test_execution | group_execution
+  cost      Int      // credits consumed
+  relatedId String?  @map("related_id") // runId, testCaseId, or testGroupId
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("usage_records")
+}
+
+// Credit budget per user (one row per user, auto-created on first use)
+model CreditAllocation {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id")
+  totalCredits Int      @default(500) @map("total_credits")
+  usedCredits  Int      @default(0) @map("used_credits")
+  periodStart  DateTime @default(now()) @map("period_start") @db.Timestamptz(3)
+  periodEnd    DateTime @map("period_end") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("credit_allocations")
+}
+
 // Screenshots linked to observations
 model Screenshot {
   id            String      @id @default(uuid()) @db.Uuid

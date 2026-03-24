@@ -1,6 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { validateRequest } from '../validation';
+import { recordUsage } from '../../db/queries/usage';
+import { CREDIT_COSTS } from '../../types/usage';
 import {
   createTestGroup,
   findTestGroupById,
@@ -301,6 +303,7 @@ router.post('/:id/execute', async (req: Request, res: Response, next: NextFuncti
     const failed = results.filter((r) => r.status === 'failed' || r.status === 'error').length;
 
     logger.info({ groupId: id, passed, healed, failed }, 'Test group execution complete');
+    recordUsage(req.user?.userId ?? 'anonymous', 'group_execution', CREDIT_COSTS.group_execution * members.length, id).catch(() => {});
 
     const response: GroupExecutionResult = {
       testGroupId: id,

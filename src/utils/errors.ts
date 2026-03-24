@@ -100,3 +100,15 @@ export class TestGroupNotFoundError extends Error {
     this.name = 'TestGroupNotFoundError';
   }
 }
+
+export class CreditLimitExceededError extends Error {
+  code = 'CREDIT_LIMIT_EXCEEDED';
+  remaining: number;
+  required: number;
+  constructor(remaining: number, required: number) {
+    super(`Credit limit exceeded: ${remaining} credits remaining, ${required} required`);
+    this.name = 'CreditLimitExceededError';
+    this.remaining = remaining;
+    this.required = required;
+  }
+}

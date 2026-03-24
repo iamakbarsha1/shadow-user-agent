@@ -1,6 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { validateRequest } from '../validation';
+import { recordUsage } from '../../db/queries/usage';
+import { CREDIT_COSTS } from '../../types/usage';
 import {
   findTestCaseById,
   listTestCasesByRunId,
@@ -249,6 +251,7 @@ router.post('/:id/execute', async (req: Request, res: Response, next: NextFuncti
     });
 
     logger.info({ id, status: finalStatus, executionId: execution.id }, 'Test execution complete');
+    recordUsage(req.user?.userId ?? 'anonymous', 'test_execution', CREDIT_COSTS.test_execution, id).catch(() => {});
 
     const response: ExecuteTestCaseResponse = {
       executionId: execution.id,

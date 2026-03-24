@@ -13,6 +13,7 @@ import {
   ScheduleNotFoundError,
   TestCaseNotFoundError,
   TestGroupNotFoundError,
+  CreditLimitExceededError,
 } from '../../utils/errors';
 import { ValidationError } from '../validation';
 
@@ -69,7 +70,7 @@ export function errorHandler(
     statusCode = 404;
     code = err.code;
     message = err.message;
-  } else if (err instanceof RunLimitExceededError) {
+  } else if (err instanceof RunLimitExceededError || err instanceof CreditLimitExceededError) {
     statusCode = 429;
     code = err.code;
     message = err.message;

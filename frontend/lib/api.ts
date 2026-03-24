@@ -165,6 +165,34 @@ interface ListSchedulesResponse {
   offset: number;
 }
 
+export type UsageAction = 'run' | 'test_generation' | 'test_execution' | 'group_execution';
+
+export interface UsageRecord {
+  id: string;
+  userId: string;
+  action: UsageAction;
+  cost: number;
+  relatedId?: string;
+  createdAt: string;
+}
+
+export interface CreditAllocation {
+  id: string;
+  userId: string;
+  totalCredits: number;
+  usedCredits: number;
+  remainingCredits: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface UsageSummary {
+  allocation: CreditAllocation;
+  recentRecords: UsageRecord[];
+  totalRecords: number;
+  byAction: Record<UsageAction, { count: number; totalCost: number }>;
+}
+
 export interface TestGroupMember {
   id: string;
   testGroupId: string;
@@ -377,6 +405,14 @@ export const api = {
 
   async executeTestGroup(groupId: string): Promise<GroupExecutionResult> {
     return fetchAPI<GroupExecutionResult>(`/api/v1/test-groups/${groupId}/execute`, { method: 'POST' });
+  },
+
+  async getUsage(): Promise<UsageSummary> {
+    return fetchAPI<UsageSummary>('/api/v1/usage');
+  },
+
+  async resetUsage(): Promise<{ reset: boolean }> {
+    return fetchAPI<{ reset: boolean }>('/api/v1/usage/reset', { method: 'POST' });
   },
 
   async downloadReportPDF(runId: string): Promise<Blob> {

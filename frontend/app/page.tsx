@@ -6,6 +6,7 @@ import { useRunStore } from '../stores/useRunStore';
 import Link from 'next/link';
 import { StatusBadge } from './components/status-badge';
 import { RunFilter, FilterState } from './components/run-filter';
+import { CreditBadge } from './components/credit-badge';
 
 export default function Dashboard(): JSX.Element {
   const { runs, loading, loadRuns } = useRunStore();
@@ -66,20 +67,23 @@ export default function Dashboard(): JSX.Element {
                 AI-powered QA system monitoring {runs.length} runs
               </p>
             </div>
-            <Link
-              href="/run/new"
-              className="px-6 py-2.5 rounded-lg bg-accent text-accent-foreground font-medium hover:opacity-90 transition-opacity duration-200 inline-flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              New Run
-            </Link>
+            <div className="flex items-center gap-3">
+              <CreditBadge />
+              <Link
+                href="/run/new"
+                className="px-6 py-2.5 rounded-lg bg-accent text-accent-foreground font-medium hover:opacity-90 transition-opacity duration-200 inline-flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                New Run
+              </Link>
+            </div>
           </div>
         </div>
       </header>
