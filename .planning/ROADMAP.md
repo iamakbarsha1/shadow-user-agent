@@ -159,5 +159,5 @@ Plans:
 | 13. Smart Test Groups | 0/2 | Not started | - |
 | 14. Credit Tracking | 0/2 | Not started | - |
 | 15. API Testing | 1/2 | Complete    | 2026-03-24 |
-| 16. Security Testing | 2/2 | Complete   | 2026-03-24 |
+| 16. Security Testing | 2/2 | Complete    | 2026-03-24 |
 | 17. Cloud Sandbox | 0/2 | Not started | - |
