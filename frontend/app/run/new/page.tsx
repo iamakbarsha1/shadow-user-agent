@@ -7,6 +7,7 @@ import { useRunFormStore } from '../../../stores/useRunFormStore';
 import { PersonaCard } from '../../components/persona-card';
 import { Slider } from '../../components/slider';
 import { PersonaIcons } from '../../components/persona-icons';
+import { ApiSpecUpload } from '../../components/api-spec-upload';
 
 const PERSONAS = [
   {
@@ -33,9 +34,25 @@ const PERSONAS = [
 
 export default function NewRun(): JSX.Element {
   const router = useRouter();
-  const { url, personaId, maxSteps, setUrl, setPersonaId, setMaxSteps, submit } = useRunFormStore();
+  const {
+    url,
+    personaId,
+    maxSteps,
+    runType,
+    apiSpec,
+    setUrl,
+    setPersonaId,
+    setMaxSteps,
+    setRunType,
+    setApiSpec,
+    submit,
+  } = useRunFormStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const isApiMode = runType === 'api';
+
+  const isSubmitDisabled = loading || !url || (isApiMode ? !apiSpec : !personaId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,71 +93,123 @@ export default function NewRun(): JSX.Element {
 
       <div className="max-w-5xl mx-auto px-6 py-12">
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-8">
+
+          {/* Run Type Toggle */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-2">
+                Test Type
+              </label>
+              <p className="text-sm text-muted-foreground mb-4">
+                Choose whether to test a web UI with a browser agent or a backend API with an HTTP agent
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setRunType('browser')}
+                className={`p-4 rounded-lg border text-left transition-all duration-200 ${
+                  runType === 'browser'
+                    ? 'border-accent bg-accent/10 text-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:border-accent/50'
+                }`}
+              >
+                <div className="font-semibold text-sm mb-1">Browser Agent</div>
+                <div className="text-xs">Simulates real user behavior with Playwright</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRunType('api')}
+                className={`p-4 rounded-lg border text-left transition-all duration-200 ${
+                  runType === 'api'
+                    ? 'border-accent bg-accent/10 text-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:border-accent/50'
+                }`}
+              >
+                <div className="font-semibold text-sm mb-1">API Agent</div>
+                <div className="text-xs">Tests HTTP endpoints from an OpenAPI spec</div>
+              </button>
+            </div>
+          </div>
+
           {/* URL Input Section */}
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-2">
-                Target URL
+                {isApiMode ? 'Base URL' : 'Target URL'}
               </label>
               <p className="text-sm text-muted-foreground mb-4">
-                Enter the URL of the application you want to test
+                {isApiMode
+                  ? 'Enter the base URL of the API you want to test'
+                  : 'Enter the URL of the application you want to test'}
               </p>
             </div>
             <input
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://your-app.com"
+              placeholder={isApiMode ? 'https://api.yourapp.com' : 'https://your-app.com'}
               required
               className="w-full px-4 py-3 rounded-lg bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all duration-200"
             />
           </div>
 
-          {/* Persona Selector Section */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">
-                Select Persona
-              </label>
-              <p className="text-sm text-muted-foreground mb-4">
-                Choose how the agent should behave during the test run
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {PERSONAS.map((persona) => (
-                <PersonaCard
-                  key={persona.id}
-                  id={persona.id}
-                  label={persona.label}
-                  description={persona.description}
-                  isSelected={personaId === persona.id}
-                  onClick={() => setPersonaId(persona.id)}
-                  icon={PersonaIcons[persona.id as keyof typeof PersonaIcons]}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Max Steps Section */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">
-                Interaction Limit
-              </label>
-              <p className="text-sm text-muted-foreground mb-4">
-                How many steps should the agent take before stopping (higher = more thorough)
-              </p>
-            </div>
+          {/* API Spec Upload — only shown in API mode */}
+          {isApiMode && (
             <div className="p-6 rounded-lg bg-card border border-border">
-              <Slider
-                min={10}
-                max={100}
-                value={maxSteps}
-                onChange={setMaxSteps}
-                step={5}
-              />
+              <ApiSpecUpload value={apiSpec} onChange={setApiSpec} />
             </div>
-          </div>
+          )}
+
+          {/* Persona Selector Section — only shown in browser mode */}
+          {!isApiMode && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-2">
+                  Select Persona
+                </label>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Choose how the agent should behave during the test run
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {PERSONAS.map((persona) => (
+                  <PersonaCard
+                    key={persona.id}
+                    id={persona.id}
+                    label={persona.label}
+                    description={persona.description}
+                    isSelected={personaId === persona.id}
+                    onClick={() => setPersonaId(persona.id)}
+                    icon={PersonaIcons[persona.id as keyof typeof PersonaIcons]}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Max Steps Section — only shown in browser mode */}
+          {!isApiMode && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-2">
+                  Interaction Limit
+                </label>
+                <p className="text-sm text-muted-foreground mb-4">
+                  How many steps should the agent take before stopping (higher = more thorough)
+                </p>
+              </div>
+              <div className="p-6 rounded-lg bg-card border border-border">
+                <Slider
+                  min={10}
+                  max={100}
+                  value={maxSteps}
+                  onChange={setMaxSteps}
+                  step={5}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Error Alert */}
           {error && (
@@ -165,7 +234,7 @@ export default function NewRun(): JSX.Element {
           <div className="flex gap-3 pt-4">
             <button
               type="submit"
-              disabled={loading || !url || !personaId}
+              disabled={isSubmitDisabled}
               className="flex-1 px-6 py-3 rounded-lg bg-accent text-accent-foreground font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -205,20 +274,37 @@ export default function NewRun(): JSX.Element {
         {/* Tips Section */}
         <div className="mt-12 p-6 rounded-lg bg-muted border border-border">
           <h3 className="font-semibold text-foreground mb-3">Tips for best results</h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex items-start gap-2">
-              <span className="text-accent mt-0.5">→</span>
-              <span>Test with different personas to catch persona-specific bugs</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-accent mt-0.5">→</span>
-              <span>Higher step counts allow more thorough exploration but take longer</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-accent mt-0.5">→</span>
-              <span>The agent will generate a detailed bug report and UX friction analysis</span>
-            </li>
-          </ul>
+          {isApiMode ? (
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="text-accent mt-0.5">→</span>
+                <span>Provide a complete OpenAPI 3.x or Swagger 2.0 JSON spec for best coverage</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-accent mt-0.5">→</span>
+                <span>The agent tests every endpoint defined in your spec and reports unexpected status codes</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-accent mt-0.5">→</span>
+                <span>Use the base URL that matches your spec&apos;s server entry (e.g. https://api.yourapp.com)</span>
+              </li>
+            </ul>
+          ) : (
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="text-accent mt-0.5">→</span>
+                <span>Test with different personas to catch persona-specific bugs</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-accent mt-0.5">→</span>
+                <span>Higher step counts allow more thorough exploration but take longer</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-accent mt-0.5">→</span>
+                <span>The agent will generate a detailed bug report and UX friction analysis</span>
+              </li>
+            </ul>
+          )}
         </div>
       </div>
     </main>

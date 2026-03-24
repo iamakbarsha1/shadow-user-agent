@@ -115,7 +115,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 15-01: Backend (apiAgent, specParser, apiTestGenerator, Run.runType field)
+- [x] 15-01: Backend (apiAgent, specParser, apiTestGenerator, Run.runType field)
 - [ ] 15-02: Frontend (runType toggle, ApiSpecUpload, ApiTestResults)
 
 ### Phase 16: Security Testing
@@ -158,6 +158,6 @@ Plans:
 | 12. Auto-Healing | 0/2 | Not started | - |
 | 13. Smart Test Groups | 0/2 | Not started | - |
 | 14. Credit Tracking | 0/2 | Not started | - |
-| 15. API Testing | 0/2 | Not started | - |
+| 15. API Testing | 1/2 | In Progress|  |
 | 16. Security Testing | 0/2 | Not started | - |
 | 17. Cloud Sandbox | 0/2 | Not started | - |

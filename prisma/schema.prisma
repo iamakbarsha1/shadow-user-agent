@@ -15,6 +15,7 @@ model Run {
   url          String
   personaId    String        @map("persona_id")
   status       String        @default("pending") // pending | running | complete | failed
+  runType      String        @default("browser") @map("run_type") // "browser" | "api"
   startedAt    DateTime      @default(now()) @map("started_at") @db.Timestamptz(3)
   completedAt  DateTime?     @map("completed_at") @db.Timestamptz(3)
   errorMessage String?       @map("error_message")

@@ -16,6 +16,7 @@ import type {
   CreateRunResponse,
   GetRunResponse,
   ListRunsResponse,
+  ApiTestResult,
 } from '../../types/run';
 
 const router = Router();
@@ -45,6 +46,7 @@ router.post('/', requireCredits(CREDIT_COSTS.run), async (req: Request, res: Res
           url: body.url,
           personaId: body.personaId,
           status: 'pending',
+          runType: body.runType ?? 'browser',
         },
       });
 
@@ -75,6 +77,8 @@ router.post('/', requireCredits(CREDIT_COSTS.run), async (req: Request, res: Res
       runId: run.id,
       url: body.url,
       personaId: body.personaId,
+      runType: body.runType ?? 'browser',
+      apiSpec: body.apiSpec,
       generateTests: body.generateTests,
       prd: body.prd,
       options: body.options,
@@ -112,15 +116,24 @@ router.get('/:runId', async (req: Request, res: Response, next: NextFunction) =>
       throw new RunNotFoundError(runId);
     }
 
+    const apiTestResults: ApiTestResult[] | undefined =
+      run.runType === 'api'
+        ? run.observations
+            .filter((o) => o.eventType === 'api_test_result')
+            .map((o) => o.payload as unknown as ApiTestResult)
+        : undefined;
+
     const response: GetRunResponse = {
       runId: run.id,
       url: run.url,
       personaId: run.personaId,
       status: run.status as 'pending' | 'running' | 'complete' | 'failed',
+      runType: (run.runType ?? 'browser') as 'browser' | 'api',
       startedAt: run.startedAt.toISOString(),
       completedAt: run.completedAt?.toISOString(),
       observationCount: run.observations.length,
       reportIds: run.reports.map((r) => r.id),
+      apiTestResults,
     };
 
     res.status(200).json(response);

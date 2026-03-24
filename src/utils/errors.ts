@@ -112,3 +112,11 @@ export class CreditLimitExceededError extends Error {
     this.required = required;
   }
 }
+
+export class InvalidSpecError extends Error {
+  code = 'INVALID_SPEC';
+  constructor(message: string) {
+    super(`Invalid API spec: ${message}`);
+    this.name = 'InvalidSpecError';
+  }
+}

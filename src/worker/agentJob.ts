@@ -16,8 +16,13 @@ import { analyzeWithClaude } from '../ai/claudeClient';
 import { buildSessionAnalysisPrompt, buildCodeReviewPrompt } from '../ai/promptBuilder';
 import { parseAnalysisReport, parseCodeReviewReport } from '../ai/responseParser';
 import { generateTestCases } from '../ai/testCodeGenerator';
+import { parseOpenApiSpec } from '../agent/specParser';
+import { ApiAgent } from '../agent/apiAgent';
+import { analyzeApiTestResults } from '../ai/apiTestAnalyzer';
 import { logger } from '../utils/logger';
 import type { SessionLog } from '../types/observation';
+import { prisma } from '../db/client';
+import type { Prisma } from '@prisma/client';
 
 /**
  * Agent Job Processor
@@ -26,7 +31,68 @@ import type { SessionLog } from '../types/observation';
  * Executes the browser agent and saves results to the database.
  */
 
-export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLog | SkippedJobResult> {
+/**
+ * Process an API testing job: parse spec, run API agent, save results, analyze.
+ */
+async function processApiJob(
+  job: Job<AgentJobData>,
+  run: { id: string; url: string }
+): Promise<{ status: 'api_complete'; endpointCount: number }> {
+  const { runId, apiSpec } = job.data;
+
+  logger.info({ runId }, 'Starting API test job');
+
+  // Parse the OpenAPI spec
+  const endpoints = parseOpenApiSpec(apiSpec ?? '');
+  logger.info({ runId, endpointCount: endpoints.length }, 'Spec parsed');
+
+  await job.updateProgress(30);
+
+  // Run API agent
+  const agent = new ApiAgent();
+  const results = await agent.run({ baseUrl: run.url, endpoints });
+
+  await job.updateProgress(70);
+
+  // Save each result as an observation
+  for (const result of results) {
+    await prisma.observation.create({
+      data: {
+        runId,
+        eventType: 'api_test_result',
+        payload: result as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  await job.updateProgress(80);
+
+  // AI analysis
+  try {
+    const report = await analyzeApiTestResults(results, run.url);
+    await saveReport(runId, 'api_test_report', report);
+    logger.info({ runId, issues: report.issues.length }, 'API analysis report saved');
+  } catch (analysisError) {
+    logger.error({ analysisError, runId }, 'API analysis failed (non-fatal)');
+  }
+
+  // Mark run complete
+  await updateRunStatus(runId, 'complete');
+
+  await job.updateProgress(100);
+
+  logger.info({ runId, endpointCount: results.length }, 'API test job completed');
+
+  return { status: 'api_complete', endpointCount: results.length };
+}
+
+/**
+ * Agent Job Processor
+ *
+ * Processes agent-run jobs from the BullMQ queue.
+ * Executes the browser agent and saves results to the database.
+ */
+export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLog | SkippedJobResult | { status: 'api_complete'; endpointCount: number }> {
   const { runId, url, personaId, options, generateTests, prd } = job.data;
 
   logger.info(
@@ -88,6 +154,11 @@ export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLo
 
     // Report progress
     await job.updateProgress(10);
+
+    // Branch: API testing run
+    if (job.data.runType === 'api') {
+      return await processApiJob(job, existingRun);
+    }
 
     // Get persona configuration
     const persona = getPersonaConfig(personaId);

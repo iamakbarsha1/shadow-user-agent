@@ -3,18 +3,21 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '../../../../lib/api';
+import { api, type ApiTestResult } from '../../../../lib/api';
 import { StatusBadge } from '../../../components/status-badge';
+import { ApiTestResults } from '../../../components/api-test-results';
 
 interface RunData {
   runId: string;
   url: string;
   personaId: string;
   status: string;
+  runType?: 'browser' | 'api';
   startedAt: string;
   completedAt?: string;
   observationCount: number;
   reportIds: string[];
+  apiTestResults?: ApiTestResult[];
 }
 
 export default function LiveMonitor(): JSX.Element {
@@ -163,6 +166,14 @@ export default function LiveMonitor(): JSX.Element {
                 </div>
               </div>
             </div>
+
+            {/* API Test Results — shown for api runs */}
+            {run.runType === 'api' && isComplete && run.apiTestResults && run.apiTestResults.length > 0 && (
+              <div className="space-y-3">
+                <h2 className="text-sm font-semibold text-foreground uppercase">API Test Results</h2>
+                <ApiTestResults results={run.apiTestResults} />
+              </div>
+            )}
 
             {/* Status-specific Cards */}
             {isComplete && (

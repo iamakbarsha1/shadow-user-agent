@@ -14,6 +14,7 @@ import {
   TestCaseNotFoundError,
   TestGroupNotFoundError,
   CreditLimitExceededError,
+  InvalidSpecError,
 } from '../../utils/errors';
 import { ValidationError } from '../validation';
 
@@ -49,6 +50,10 @@ export function errorHandler(
     res.status(statusCode).json(response);
     return;
   } else if (err instanceof InvalidUrlError) {
+    statusCode = 400;
+    code = err.code;
+    message = err.message;
+  } else if (err instanceof InvalidSpecError) {
     statusCode = 400;
     code = err.code;
     message = err.message;

@@ -9,26 +9,38 @@ export const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-export const createRunSchema = z.object({
-  url: z.string().url('Invalid URL format'),
-  personaId: z.enum(['new_user', 'power_user', 'mobile_user', 'edge_case'], {
-    errorMap: () => ({ message: 'Invalid persona ID' }),
-  }),
-  generateTests: z.boolean().optional(),
-  prd: z.string().optional(),
-  options: z
-    .object({
-      maxSteps: z.number().int().min(1).max(100).optional(),
-      authCredentials: z
-        .object({
-          username: z.string(),
-          password: z.string(),
-        })
-        .optional(),
-      scopePathPrefix: z.string().optional(),
-    })
-    .optional(),
-});
+export const createRunSchema = z
+  .object({
+    url: z.string().url('Invalid URL format'),
+    personaId: z.enum(['new_user', 'power_user', 'mobile_user', 'edge_case'], {
+      errorMap: () => ({ message: 'Invalid persona ID' }),
+    }),
+    runType: z.enum(['browser', 'api']).optional().default('browser'),
+    apiSpec: z.string().optional(),
+    generateTests: z.boolean().optional(),
+    prd: z.string().optional(),
+    options: z
+      .object({
+        maxSteps: z.number().int().min(1).max(100).optional(),
+        authCredentials: z
+          .object({
+            username: z.string(),
+            password: z.string(),
+          })
+          .optional(),
+        scopePathPrefix: z.string().optional(),
+      })
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.runType === 'api') {
+        return typeof data.apiSpec === 'string' && data.apiSpec.length > 0;
+      }
+      return true;
+    },
+    { message: 'apiSpec is required when runType is "api"', path: ['apiSpec'] }
+  );
 
 export const createScheduleSchema = z.object({
   url: z.string().url('Invalid URL format'),

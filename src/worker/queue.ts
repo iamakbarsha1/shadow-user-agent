@@ -13,6 +13,8 @@ export interface AgentJobData {
   runId: string;
   url: string;
   personaId: string;
+  runType?: 'browser' | 'api';
+  apiSpec?: string;
   generateTests?: boolean;
   prd?: string;
   options?: {

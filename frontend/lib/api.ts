@@ -8,6 +8,8 @@ interface LoginResponse {
 interface CreateRunRequest {
   url: string;
   personaId: string;
+  runType?: 'browser' | 'api';
+  apiSpec?: string;
   generateTests?: boolean;
   prd?: string;
   options?: {
@@ -23,15 +25,27 @@ interface CreateRunResponse {
   startedAt: string;
 }
 
+export interface ApiTestResult {
+  endpoint: string;
+  operationId?: string;
+  status: number;
+  responseTime: number;
+  passed: boolean;
+  failureReason?: string;
+  expectedStatuses: number[];
+}
+
 interface RunResponse {
   runId: string;
   url: string;
   personaId: string;
   status: string;
+  runType?: 'browser' | 'api';
   startedAt: string;
   completedAt?: string;
   observationCount: number;
   reportIds: string[];
+  apiTestResults?: ApiTestResult[];
 }
 
 interface ListRunsResponse {
