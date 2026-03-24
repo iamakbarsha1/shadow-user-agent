@@ -12,6 +12,7 @@ import {
   AITimeoutError,
   ScheduleNotFoundError,
   TestCaseNotFoundError,
+  TestGroupNotFoundError,
 } from '../../utils/errors';
 import { ValidationError } from '../validation';
 
@@ -62,7 +63,8 @@ export function errorHandler(
     err instanceof RunNotFoundError ||
     err instanceof ReportNotFoundError ||
     err instanceof ScheduleNotFoundError ||
-    err instanceof TestCaseNotFoundError
+    err instanceof TestCaseNotFoundError ||
+    err instanceof TestGroupNotFoundError
   ) {
     statusCode = 404;
     code = err.code;

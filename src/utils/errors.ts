@@ -92,3 +92,11 @@ export class ScheduleNotFoundError extends Error {
     this.name = 'ScheduleNotFoundError';
   }
 }
+
+export class TestGroupNotFoundError extends Error {
+  code = 'TEST_GROUP_NOT_FOUND';
+  constructor(id: string) {
+    super(`Test group not found: ${id}`);
+    this.name = 'TestGroupNotFoundError';
+  }
+}

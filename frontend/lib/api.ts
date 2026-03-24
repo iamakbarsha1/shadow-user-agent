@@ -165,6 +165,46 @@ interface ListSchedulesResponse {
   offset: number;
 }
 
+export interface TestGroupMember {
+  id: string;
+  testGroupId: string;
+  testCaseId: string;
+  order: number;
+  testCase?: { id: string; title: string; status: string; framework: string };
+}
+
+export interface TestGroup {
+  id: string;
+  name: string;
+  description?: string;
+  runOnSchedule: boolean;
+  createdAt: string;
+  updatedAt: string;
+  memberships?: TestGroupMember[];
+}
+
+interface ListTestGroupsResponse {
+  testGroups: TestGroup[];
+  total: number;
+}
+
+export interface GroupExecutionResult {
+  testGroupId: string;
+  testGroupName: string;
+  results: Array<{
+    testCaseId: string;
+    testCaseTitle: string;
+    executionId: string;
+    status: 'passed' | 'failed' | 'healed' | 'error';
+    duration: number;
+    healed: boolean;
+  }>;
+  passed: number;
+  failed: number;
+  healed: number;
+  total: number;
+}
+
 let authToken: string | null = null;
 
 export function setAuthToken(token: string): void {
@@ -302,6 +342,41 @@ export const api = {
 
   async deleteSchedule(id: string): Promise<{ deleted: boolean }> {
     return fetchAPI<{ deleted: boolean }>(`/api/v1/schedules/${id}`, { method: 'DELETE' });
+  },
+
+  async listTestGroups(): Promise<ListTestGroupsResponse> {
+    return fetchAPI<ListTestGroupsResponse>('/api/v1/test-groups');
+  },
+
+  async getTestGroup(id: string): Promise<TestGroup> {
+    return fetchAPI<TestGroup>(`/api/v1/test-groups/${id}`);
+  },
+
+  async createTestGroup(data: { name: string; description?: string; runOnSchedule?: boolean }): Promise<TestGroup> {
+    return fetchAPI<TestGroup>('/api/v1/test-groups', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  async updateTestGroup(id: string, data: { name?: string; description?: string; runOnSchedule?: boolean }): Promise<TestGroup> {
+    return fetchAPI<TestGroup>(`/api/v1/test-groups/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+
+  async deleteTestGroup(id: string): Promise<{ deleted: boolean }> {
+    return fetchAPI<{ deleted: boolean }>(`/api/v1/test-groups/${id}`, { method: 'DELETE' });
+  },
+
+  async addGroupMember(groupId: string, testCaseId: string, order?: number): Promise<TestGroup> {
+    return fetchAPI<TestGroup>(`/api/v1/test-groups/${groupId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ testCaseId, order }),
+    });
+  },
+
+  async removeGroupMember(groupId: string, testCaseId: string): Promise<TestGroup> {
+    return fetchAPI<TestGroup>(`/api/v1/test-groups/${groupId}/members/${testCaseId}`, { method: 'DELETE' });
+  },
+
+  async executeTestGroup(groupId: string): Promise<GroupExecutionResult> {
+    return fetchAPI<GroupExecutionResult>(`/api/v1/test-groups/${groupId}/execute`, { method: 'POST' });
   },
 
   async downloadReportPDF(runId: string): Promise<Blob> {

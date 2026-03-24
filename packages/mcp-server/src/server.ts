@@ -12,6 +12,8 @@ import { getResults, getResultsSchema } from './tools/getResults';
 import { listTestCases, listTestCasesSchema } from './tools/listTestCases';
 import { executeTestCase, executeTestCaseSchema } from './tools/executeTestCase';
 import { getReport, getReportSchema } from './tools/getReport';
+import { getFixSuggestions, getFixSuggestionsSchema } from './tools/getFixSuggestions';
+import { applyFix, applyFixSchema } from './tools/applyFix';
 
 const TOOLS = [
   {
@@ -88,6 +90,28 @@ const TOOLS = [
       required: ['reportId'],
     },
   },
+  {
+    name: 'shadow_get_fix_suggestions',
+    description: 'Get AI-generated fix suggestions for all failing tests in a test group. Returns diagnosis and healed code for each failing member.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        testGroupId: { type: 'string', description: 'Test group ID to get fix suggestions for' },
+      },
+      required: ['testGroupId'],
+    },
+  },
+  {
+    name: 'shadow_apply_fix',
+    description: 'Trigger auto-healing for a failing test case. Runs the test, diagnoses the failure, and attempts to fix broken selectors automatically.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        testCaseId: { type: 'string', description: 'Test case ID to apply fix to' },
+      },
+      required: ['testCaseId'],
+    },
+  },
 ];
 
 /**
@@ -123,6 +147,10 @@ export function createMcpServer(config: ShadowConfig): Server {
         result = await executeTestCase(client, executeTestCaseSchema.parse(args));
       } else if (name === 'shadow_get_report') {
         result = await getReport(client, getReportSchema.parse(args));
+      } else if (name === 'shadow_get_fix_suggestions') {
+        result = await getFixSuggestions(client, getFixSuggestionsSchema.parse(args));
+      } else if (name === 'shadow_apply_fix') {
+        result = await applyFix(client, applyFixSchema.parse(args));
       } else {
         return { content: [{ type: 'text' as const, text: `Unknown tool: ${name}` }], isError: true };
       }

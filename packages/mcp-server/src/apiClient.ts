@@ -97,6 +97,50 @@ export class ShadowApiClient {
     }>(`/api/v1/test-cases/${id}`);
   }
 
+  async getTestGroup(id: string) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      runOnSchedule: boolean;
+      createdAt: string;
+      updatedAt: string;
+      memberships?: Array<{
+        id: string;
+        testCaseId: string;
+        order: number;
+        testCase?: { id: string; title: string; status: string; framework: string };
+      }>;
+    }>(`/api/v1/test-groups/${id}`);
+  }
+
+  async listTestExecutions(testCaseId: string) {
+    const res = await this.request<{
+      testCaseId: string;
+      executions: Array<{
+        id: string;
+        status: string;
+        duration: number;
+        diagnosis: unknown;
+        healedCode?: string | null;
+        executedAt: string;
+      }>;
+      total: number;
+    }>(`/api/v1/test-cases/${testCaseId}/executions`);
+    return res.executions;
+  }
+
+  async executeTestCase(testCaseId: string) {
+    return this.request<{
+      executionId: string;
+      status: string;
+      duration: number;
+      output: string;
+      diagnosis: unknown;
+      healed: boolean;
+    }>(`/api/v1/test-cases/${testCaseId}/execute`, { method: 'POST' });
+  }
+
   async pollRunUntilComplete(runId: string, timeoutMs = 300000): Promise<{ status: string }> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {

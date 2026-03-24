@@ -104,12 +104,44 @@ model TestCase {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  run            Run             @relation(fields: [runId], references: [id], onDelete: Cascade)
-  testExecutions TestExecution[]
+  run                  Run                   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  testExecutions       TestExecution[]
+  testGroupMemberships TestGroupMembership[]
 
   @@index([runId])
   @@index([status])
   @@map("test_cases")
+}
+
+// Groups of test cases for organized suite execution
+model TestGroup {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String
+  description   String?
+  runOnSchedule Boolean   @default(false) @map("run_on_schedule")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships TestGroupMembership[]
+
+  @@index([name])
+  @@map("test_groups")
+}
+
+// Join table linking test cases to groups with ordering
+model TestGroupMembership {
+  id          String @id @default(uuid()) @db.Uuid
+  testGroupId String @map("test_group_id") @db.Uuid
+  testCaseId  String @map("test_case_id") @db.Uuid
+  order       Int    @default(0)
+
+  testGroup TestGroup @relation(fields: [testGroupId], references: [id], onDelete: Cascade)
+  testCase  TestCase  @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([testGroupId, testCaseId])
+  @@index([testGroupId])
+  @@index([testCaseId])
+  @@map("test_group_memberships")
 }
 
 // Scheduled recurring runs
