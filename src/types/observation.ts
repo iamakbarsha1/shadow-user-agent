@@ -9,7 +9,8 @@ export type ObservationType =
   | 'layout_shift'
   | 'rage_click'
   | 'broken_image'
-  | 'stuck_loader';
+  | 'stuck_loader'
+  | 'security_finding';
 
 export interface BaseObservation {
   id: string;
@@ -82,6 +83,19 @@ export interface StuckLoaderObservation extends BaseObservation {
   };
 }
 
+export interface SecurityFindingObservation extends BaseObservation {
+  eventType: 'security_finding';
+  payload: {
+    checkName: string;
+    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+    title: string;
+    description: string;
+    evidence?: string;
+    url: string;
+    passed: boolean;
+  };
+}
+
 export type Observation =
   | ConsoleErrorObservation
   | NetworkFailureObservation
@@ -89,7 +103,8 @@ export type Observation =
   | LayoutShiftObservation
   | RageClickObservation
   | BrokenImageObservation
-  | StuckLoaderObservation;
+  | StuckLoaderObservation
+  | SecurityFindingObservation;
 
 export interface SessionLog {
   runId: string;

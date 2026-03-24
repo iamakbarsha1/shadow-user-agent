@@ -8,6 +8,7 @@ import { useReportStore } from '../../../stores/useReportStore';
 import { useTestCaseStore } from '../../../stores/useTestCaseStore';
 import { HealingHistory } from '../../components/healing-history';
 import { DiagnosisCard } from '../../components/diagnosis-card';
+import { SecurityReport } from '../../components/security-report';
 
 interface RunData {
   runId: string;
@@ -56,6 +57,28 @@ interface CodeReviewContent {
   recommendations: string[];
 }
 
+interface SecurityFinding {
+  checkName: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  title: string;
+  description: string;
+  evidence?: string;
+  recommendation: string;
+}
+
+interface SecurityReportContent {
+  summary: string;
+  totalChecks: number;
+  passedChecks: number;
+  failedChecks: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  findings: SecurityFinding[];
+  overallRisk: 'critical' | 'high' | 'medium' | 'low' | 'safe';
+}
+
 const severityConfig: Record<string, { color: string; label: string }> = {
   P1: { color: 'bg-red-950 text-red-200 border-red-800', label: 'Critical' },
   P2: { color: 'bg-orange-950 text-orange-200 border-orange-800', label: 'High' },
@@ -70,7 +93,7 @@ export default function ReportViewer(): JSX.Element {
   const { testCases, loading: testCasesLoading, loadTestCases, deleteTestCase } = useTestCaseStore();
   const [run, setRun] = useState<RunData | null>(null);
   const [runLoading, setRunLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'bug_report' | 'code_review' | 'generated_tests'>('bug_report');
+  const [activeTab, setActiveTab] = useState<'bug_report' | 'code_review' | 'generated_tests' | 'security_report'>('bug_report');
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // Per-test-case execution state
@@ -118,8 +141,10 @@ export default function ReportViewer(): JSX.Element {
 
   const bugReportRaw = reports.find((r) => r.reportType === 'bug_report');
   const codeReviewRaw = reports.find((r) => r.reportType === 'code_review');
+  const securityReportRaw = reports.find((r) => r.reportType === 'security_report');
   const bugReportContent = bugReportRaw?.content as unknown as BugReportContent | undefined;
   const codeReviewContent = codeReviewRaw?.content as unknown as CodeReviewContent | undefined;
+  const securityReportContent = securityReportRaw?.content as unknown as SecurityReportContent | undefined;
 
   const loading = runLoading || reportsLoading || testCasesLoading;
 
@@ -296,6 +321,18 @@ export default function ReportViewer(): JSX.Element {
                   </span>
                 )}
               </button>
+              {securityReportRaw && (
+                <button
+                  onClick={() => setActiveTab('security_report')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-200 inline-flex items-center gap-2 ${
+                    activeTab === 'security_report'
+                      ? 'border-accent text-foreground'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Security
+                </button>
+              )}
             </div>
             <button
               onClick={handleDownloadPDF}
@@ -504,6 +541,8 @@ export default function ReportViewer(): JSX.Element {
               </div>
             )}
           </div>
+        ) : activeTab === 'security_report' && securityReportContent ? (
+          <SecurityReport content={securityReportContent} />
         ) : activeTab === 'generated_tests' ? (
           <div className="space-y-6">
             {testCases.length === 0 ? (
@@ -630,7 +669,7 @@ export default function ReportViewer(): JSX.Element {
         ) : (
           <div className="text-center py-16 px-6 rounded-lg bg-card border border-border">
             <p className="text-muted-foreground">
-              {activeTab === 'bug_report' ? 'No bug report' : 'No code review'} available for this run
+              {activeTab === 'bug_report' ? 'No bug report' : activeTab === 'code_review' ? 'No code review' : 'No security report'} available for this run
             </p>
           </div>
         )}

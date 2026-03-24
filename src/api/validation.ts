@@ -12,10 +12,10 @@ export const loginSchema = z.object({
 export const createRunSchema = z
   .object({
     url: z.string().url('Invalid URL format'),
-    personaId: z.enum(['new_user', 'power_user', 'mobile_user', 'edge_case'], {
+    personaId: z.enum(['new_user', 'power_user', 'mobile_user', 'edge_case', 'security_scanner'], {
       errorMap: () => ({ message: 'Invalid persona ID' }),
     }),
-    runType: z.enum(['browser', 'api']).optional().default('browser'),
+    runType: z.enum(['browser', 'api', 'security']).optional().default('browser'),
     apiSpec: z.string().optional(),
     generateTests: z.boolean().optional(),
     prd: z.string().optional(),

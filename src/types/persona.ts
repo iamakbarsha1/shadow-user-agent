@@ -2,7 +2,7 @@
  * Persona-related type definitions
  */
 
-export type PersonaId = 'new_user' | 'power_user' | 'mobile_user' | 'edge_case';
+export type PersonaId = 'new_user' | 'power_user' | 'mobile_user' | 'edge_case' | 'security_scanner';
 
 export type NavigationSpeed = 'slow' | 'normal' | 'fast';
 

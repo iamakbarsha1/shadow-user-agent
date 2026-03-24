@@ -102,14 +102,15 @@ describe('Persona Engine', () => {
   });
 
   describe('getAllPersonaIds', () => {
-    it('should return all 4 persona IDs', () => {
+    it('should return all 5 persona IDs', () => {
       const ids = getAllPersonaIds();
 
-      expect(ids).toHaveLength(4);
+      expect(ids).toHaveLength(5);
       expect(ids).toContain('new_user');
       expect(ids).toContain('power_user');
       expect(ids).toContain('mobile_user');
       expect(ids).toContain('edge_case');
+      expect(ids).toContain('security_scanner');
     });
 
     it('should return array of strings', () => {
@@ -122,10 +123,10 @@ describe('Persona Engine', () => {
   });
 
   describe('getAllPersonas', () => {
-    it('should return all 4 persona configs', () => {
+    it('should return all 5 persona configs', () => {
       const personas = getAllPersonas();
 
-      expect(personas).toHaveLength(4);
+      expect(personas).toHaveLength(5);
     });
 
     it('should return valid PersonaConfig objects', () => {
@@ -144,7 +145,7 @@ describe('Persona Engine', () => {
         expect(persona).toHaveProperty('promptContext');
 
         // Validate types
-        expect(['new_user', 'power_user', 'mobile_user', 'edge_case']).toContain(
+        expect(['new_user', 'power_user', 'mobile_user', 'edge_case', 'security_scanner']).toContain(
           persona.id
         );
         expect(['slow', 'normal', 'fast']).toContain(persona.navigationSpeed);

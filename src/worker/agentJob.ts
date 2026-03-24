@@ -19,6 +19,8 @@ import { generateTestCases } from '../ai/testCodeGenerator';
 import { parseOpenApiSpec } from '../agent/specParser';
 import { ApiAgent } from '../agent/apiAgent';
 import { analyzeApiTestResults } from '../ai/apiTestAnalyzer';
+import { SecurityAgent } from '../agent/securityAgent';
+import { buildSecurityReport } from '../ai/securityReportBuilder';
 import { logger } from '../utils/logger';
 import type { SessionLog } from '../types/observation';
 import { prisma } from '../db/client';
@@ -87,12 +89,47 @@ async function processApiJob(
 }
 
 /**
+ * Process a security testing job: run all security checks, analyze with Claude, save report.
+ */
+async function processSecurityJob(
+  job: Job<AgentJobData>,
+  run: { id: string; url: string }
+): Promise<{ status: 'security_complete'; checkCount: number }> {
+  const { runId } = job.data;
+
+  logger.info({ runId }, 'Starting security test job');
+
+  const agent = new SecurityAgent();
+  const results = await agent.run({ baseUrl: run.url, runId });
+
+  await job.updateProgress(70);
+
+  try {
+    const report = await buildSecurityReport(results, run.url);
+    await saveReport(runId, 'security_report', report);
+    logger.info(
+      { runId, overallRisk: report.overallRisk, findings: report.findings.length },
+      'Security report saved'
+    );
+  } catch (analysisError) {
+    logger.error({ analysisError, runId }, 'Security analysis failed (non-fatal)');
+  }
+
+  await updateRunStatus(runId, 'complete');
+  await job.updateProgress(100);
+
+  logger.info({ runId, checkCount: results.length }, 'Security test job completed');
+
+  return { status: 'security_complete', checkCount: results.length };
+}
+
+/**
  * Agent Job Processor
  *
  * Processes agent-run jobs from the BullMQ queue.
  * Executes the browser agent and saves results to the database.
  */
-export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLog | SkippedJobResult | { status: 'api_complete'; endpointCount: number }> {
+export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLog | SkippedJobResult | { status: 'api_complete'; endpointCount: number } | { status: 'security_complete'; checkCount: number }> {
   const { runId, url, personaId, options, generateTests, prd } = job.data;
 
   logger.info(
@@ -158,6 +195,11 @@ export async function processAgentJob(job: Job<AgentJobData>): Promise<SessionLo
     // Branch: API testing run
     if (job.data.runType === 'api') {
       return await processApiJob(job, existingRun);
+    }
+
+    // Branch: Security testing run
+    if (job.data.runType === 'security') {
+      return await processSecurityJob(job, existingRun);
     }
 
     // Get persona configuration

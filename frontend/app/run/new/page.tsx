@@ -30,6 +30,11 @@ const PERSONAS = [
     label: 'Edge-Case User',
     description: 'Stress tests with special characters and edge cases',
   },
+  {
+    id: 'security_scanner',
+    label: 'Security Scanner',
+    description: 'Probes for XSS, CSRF, insecure headers, cookie flags, and redirect vulnerabilities',
+  },
 ];
 
 export default function NewRun(): JSX.Element {

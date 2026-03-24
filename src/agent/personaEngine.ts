@@ -70,6 +70,20 @@ const PERSONAS: Record<PersonaId, PersonaConfig> = {
     promptContext:
       'You are a user who accidentally stresses the application. You submit forms with empty fields, paste special characters into text inputs, press the browser back button mid-transaction, and refresh at unexpected moments. Note every error, blank screen, or unexpected behaviour that results.',
   },
+
+  security_scanner: {
+    id: 'security_scanner',
+    label: 'Security Scanner',
+    description:
+      'Specialized agent that probes for XSS, CSRF, insecure headers, cookie flags, open redirects, mixed content, and clickjacking vulnerabilities.',
+    navigationSpeed: 'fast',
+    maxSteps: 50,
+    formFillStrategy: 'random',
+    errorTolerance: 'continue',
+    viewportWidth: 1280,
+    viewportHeight: 800,
+    promptContext: 'You are a security scanner probing for vulnerabilities.',
+  },
 };
 
 /**

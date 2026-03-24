@@ -13,7 +13,7 @@ Nine phases transform Shadow User Agent from a bug-detection tool into a full Te
 - [ ] **Phase 13: Smart Test Groups + IDE Fix Recommendations** — Organize tests, push fixes to IDE
 - [ ] **Phase 14: Credit-Based Usage Tracking** — Metering and quota enforcement
 - [x] **Phase 15: API Testing** — OpenAPI/Swagger spec-based backend testing (completed 2026-03-24)
-- [ ] **Phase 16: Security Testing** — XSS, CSRF, headers, cookies, redirects
+- [x] **Phase 16: Security Testing** — XSS, CSRF, headers, cookies, redirects (completed 2026-03-24)
 - [ ] **Phase 17: Cloud Sandbox Execution** — Ephemeral Docker containers per run
 
 ## Phase Details
@@ -129,8 +129,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 16-01: Backend (securityAgent, securityChecks, securityReportBuilder, new persona + observation types)
-- [ ] 16-02: Frontend (Security Report tab, security findings display)
+- [x] 16-01: Backend (securityAgent, securityChecks, securityReportBuilder, new persona + observation types)
+- [x] 16-02: Frontend (Security Report tab, security findings display)
 
 ### Phase 17: Cloud Sandbox Execution
 **Goal**: Ephemeral Docker containers per run for isolation
@@ -159,5 +159,5 @@ Plans:
 | 13. Smart Test Groups | 0/2 | Not started | - |
 | 14. Credit Tracking | 0/2 | Not started | - |
 | 15. API Testing | 1/2 | Complete    | 2026-03-24 |
-| 16. Security Testing | 0/2 | Not started | - |
+| 16. Security Testing | 2/2 | Complete   | 2026-03-24 |
 | 17. Cloud Sandbox | 0/2 | Not started | - |

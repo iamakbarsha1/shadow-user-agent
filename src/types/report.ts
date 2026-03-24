@@ -2,7 +2,7 @@
  * Report-related type definitions
  */
 
-export type ReportType = 'bug_report' | 'ux_friction' | 'code_review' | 'api_test_report';
+export type ReportType = 'bug_report' | 'ux_friction' | 'code_review' | 'api_test_report' | 'security_report';
 
 export type BugSeverity = 'P1' | 'P2' | 'P3' | 'P4';
 

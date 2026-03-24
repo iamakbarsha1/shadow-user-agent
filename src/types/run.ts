@@ -4,7 +4,7 @@
 
 export type RunStatus = 'pending' | 'running' | 'complete' | 'failed';
 
-export type RunType = 'browser' | 'api';
+export type RunType = 'browser' | 'api' | 'security';
 
 export interface CreateRunRequest {
   url: string;
