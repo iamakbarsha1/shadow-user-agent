@@ -1,3 +1,159 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Default colors (light mode) - used as fallback */
+:root {
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #020617;
+  --card: #ffffff;
+  --card-foreground: #020617;
+  --muted: #e8ecf1;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+
+  --primary: #0f172a;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #ffffff;
+  --accent: #22c55e;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --ring: #0f172a;
+}
+
+/* Explicit Light Mode (when html has light class) */
+html.light {
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #020617;
+  --card: #ffffff;
+  --card-foreground: #020617;
+  --muted: #e8ecf1;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+
+  --primary: #0f172a;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #ffffff;
+  --accent: #22c55e;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --ring: #0f172a;
+}
+
+/* Explicit Dark Mode (when html has dark class) - overrides all defaults */
+html.dark {
+  color-scheme: dark;
+  --background: #020617;
+  --foreground: #f8fafc;
+  --card: #0e1223;
+  --card-foreground: #f8fafc;
+  --muted: #1a1e2f;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+
+  --primary: #0f172a;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #ffffff;
+  --accent: #22c55e;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --ring: #0f172a;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+    font-family: 'Fira Sans', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Fira Sans', system-ui, sans-serif;
+    font-weight: 600;
+    @apply text-foreground;
+  }
+
+  code, pre {
+    font-family: 'Fira Code', monospace;
+  }
+}
+
+@layer components {
+  /* Status Badge Component */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200;
+  }
+
+  .status-badge.complete {
+    @apply bg-emerald-950 text-emerald-200;
+  }
+
+  .status-badge.running {
+    @apply bg-blue-950 text-blue-200 animate-status-pulse;
+  }
+
+  .status-badge.pending {
+    @apply bg-amber-950 text-amber-200 animate-status-pulse;
+  }
+
+  .status-badge.failed {
+    @apply bg-red-950 text-red-200;
+  }
+
+  /* Filter Chip Component */
+  .filter-chip {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-sm transition-all duration-150 hover:bg-border hover:text-foreground;
+  }
+
+  .filter-chip button {
+    @apply ml-1 hover:text-foreground cursor-pointer;
+  }
+
+  /* Primary Button - Accent Color */
+  .btn-primary {
+    @apply px-6 py-3 rounded-lg bg-accent text-accent-foreground font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  /* Secondary Button - Muted */
+  .btn-secondary {
+    @apply px-6 py-3 rounded-lg bg-muted text-foreground font-medium hover:bg-border transition-colors duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  /* Tertiary Button - Border */
+  .btn-tertiary {
+    @apply px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-muted transition-colors duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  /* Danger Button */
+  .btn-danger {
+    @apply px-6 py-3 rounded-lg bg-destructive text-destructive-foreground font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+}
+
+/* Custom Scrollbar */
+@layer utilities {
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full hover:bg-muted;
+  }
+}
