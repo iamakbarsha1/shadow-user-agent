@@ -59,6 +59,18 @@ model Report {
   @@map("reports")
 }
 
+// API keys for programmatic access (MCP server, CLI)
+model ApiKey {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  label     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([key])
+  @@map("api_keys")
+}
+
 // Generated test cases from agent sessions
 model TestCase {
   id          String    @id @default(uuid()) @db.Uuid

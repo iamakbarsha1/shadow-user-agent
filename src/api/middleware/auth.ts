@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UnauthorizedError } from '../../utils/errors';
+import { findApiKeyByValue } from '../../db/queries/apiKeys';
 import type { JWTPayload } from '../../types/auth';
 
 /**
@@ -17,26 +18,28 @@ declare global {
 
 /**
  * JWT authentication middleware.
- * Validates Bearer token or X-API-Key header.
+ * Validates Bearer token or x-api-key header (DB-stored keys or INTERNAL_API_KEY).
  * In development mode, allows unauthenticated requests for testing.
  */
 export function authenticateJWT(req: Request, _res: Response, next: NextFunction): void {
-  try {
-    // Development mode bypass - allow unauthenticated requests
-    if (process.env.NODE_ENV === 'development') {
-      req.user = {
-        userId: 'dev-user',
-        email: 'dev@localhost',
-        iat: Date.now() / 1000,
-        exp: Date.now() / 1000 + 3600,
-      };
-      return next();
-    }
+  // Development mode bypass - allow unauthenticated requests
+  if (process.env.NODE_ENV === 'development') {
+    req.user = {
+      userId: 'dev-user',
+      email: 'dev@localhost',
+      iat: Date.now() / 1000,
+      exp: Date.now() / 1000 + 3600,
+    };
+    return next();
+  }
 
-    // Check for X-API-Key header (internal use)
-    const apiKey = req.headers['x-api-key'];
-    if (apiKey && apiKey === process.env.INTERNAL_API_KEY) {
-      // Allow internal API key
+  // Check for x-api-key header — check INTERNAL_API_KEY first (sync), then DB keys (async)
+  const apiKeyHeader = req.headers['x-api-key'];
+  if (apiKeyHeader) {
+    const keyValue = Array.isArray(apiKeyHeader) ? apiKeyHeader[0] : apiKeyHeader;
+
+    // Internal static key check (synchronous)
+    if (keyValue === process.env.INTERNAL_API_KEY) {
       req.user = {
         userId: 'internal',
         email: 'internal@system',
@@ -46,6 +49,26 @@ export function authenticateJWT(req: Request, _res: Response, next: NextFunction
       return next();
     }
 
+    // DB-stored API key check (asynchronous)
+    findApiKeyByValue(keyValue)
+      .then((record) => {
+        if (!record) {
+          return next(new UnauthorizedError('Invalid API key'));
+        }
+        req.user = {
+          userId: `apikey:${record.id}`,
+          email: `apikey:${record.label}`,
+          iat: Date.now() / 1000,
+          exp: Date.now() / 1000 + 3600,
+        };
+        next();
+      })
+      .catch(() => next(new UnauthorizedError('Invalid API key')));
+
+    return; // async path — do not fall through
+  }
+
+  try {
     // Check for Bearer token
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

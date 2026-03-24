@@ -1,0 +1,25 @@
+{
+  "name": "@shadow-agent/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Shadow User Agent — IDE integration for Cursor, VSCode, Claude Code",
+  "main": "dist/index.js",
+  "bin": {
+    "shadow-mcp": "./bin/shadow-mcp.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.9",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

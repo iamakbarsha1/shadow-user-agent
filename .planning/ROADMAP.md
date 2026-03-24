@@ -7,7 +7,7 @@ Nine phases transform Shadow User Agent from a bug-detection tool into a full Te
 ## Phases
 
 - [x] **Phase 9: Test Code Generation** — Generate executable Playwright tests from agent sessions
-- [ ] **Phase 10: MCP Server** — Publishable npm package for Cursor/VSCode/Claude Code integration
+- [x] **Phase 10: MCP Server** — Publishable npm package for Cursor/VSCode/Claude Code integration
 - [ ] **Phase 11: Scheduled Monitoring** — Cron-based recurring test runs via BullMQ repeatable jobs
 - [ ] **Phase 12: Auto-Healing** — Diagnose test failures and auto-fix broken selectors
 - [ ] **Phase 13: Smart Test Groups + IDE Fix Recommendations** — Organize tests, push fixes to IDE
