@@ -94,6 +94,39 @@ interface UpdateTestCaseRequest {
   testCode?: string;
 }
 
+export interface FailureDiagnosis {
+  failureType: 'selector' | 'timeout' | 'assertion' | 'network' | 'unknown';
+  affectedSelectors: string[];
+  diagnosis: string;
+  suggestedFix: string;
+}
+
+export interface TestExecution {
+  id: string;
+  testCaseId: string;
+  status: 'passed' | 'failed' | 'healed' | 'error';
+  duration: number;
+  output: string | null;
+  diagnosis: FailureDiagnosis | null;
+  healedCode: string | null;
+  executedAt: string;
+}
+
+export interface ExecuteTestCaseResponse {
+  executionId: string;
+  status: 'passed' | 'failed' | 'healed' | 'error';
+  duration: number;
+  output: string | null;
+  diagnosis: FailureDiagnosis | null;
+  healed: boolean;
+}
+
+interface ListTestExecutionsResponse {
+  testCaseId: string;
+  executions: TestExecution[];
+  total: number;
+}
+
 export interface Schedule {
   id: string;
   url: string;
@@ -234,6 +267,14 @@ export const api = {
 
   getTestCaseDownloadUrl(id: string): string {
     return `${API_BASE_URL}/api/v1/test-cases/${id}/download`;
+  },
+
+  async executeTestCase(id: string): Promise<ExecuteTestCaseResponse> {
+    return fetchAPI<ExecuteTestCaseResponse>(`/api/v1/test-cases/${id}/execute`, { method: 'POST' });
+  },
+
+  async listTestExecutions(id: string): Promise<ListTestExecutionsResponse> {
+    return fetchAPI<ListTestExecutionsResponse>(`/api/v1/test-cases/${id}/executions`);
   },
 
   async listSchedules(params?: { enabled?: boolean; limit?: number; offset?: number }): Promise<ListSchedulesResponse> {

@@ -71,6 +71,24 @@ model ApiKey {
   @@map("api_keys")
 }
 
+// Execution records for test cases (auto-healing history)
+model TestExecution {
+  id         String   @id @default(uuid()) @db.Uuid
+  testCaseId String   @map("test_case_id") @db.Uuid
+  status     String   // passed | failed | healed | error
+  duration   Int      // milliseconds
+  output     String?  @db.Text
+  diagnosis  Json?    @db.JsonB
+  healedCode String?  @map("healed_code") @db.Text
+  executedAt DateTime @default(now()) @map("executed_at") @db.Timestamptz(3)
+
+  testCase TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@index([testCaseId])
+  @@index([executedAt])
+  @@map("test_executions")
+}
+
 // Generated test cases from agent sessions
 model TestCase {
   id          String    @id @default(uuid()) @db.Uuid
@@ -86,7 +104,8 @@ model TestCase {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run            Run             @relation(fields: [runId], references: [id], onDelete: Cascade)
+  testExecutions TestExecution[]
 
   @@index([runId])
   @@index([status])
